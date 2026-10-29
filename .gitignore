@@ -1,0 +1,13 @@
+node_modules/
+dist/
+release/
+test-artifacts/
+tests/.tmp/
+.npm-cache/
+.electron-cache/
+.electron-builder-cache/
+.tmp/
+*.log
+*.corrupt
+.DS_Store
+Thumbs.db

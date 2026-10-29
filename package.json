@@ -1,0 +1,92 @@
+{
+  "name": "skylog",
+  "productName": "SkyLog",
+  "version": "1.0.0",
+  "description": "SkyLog 航迹 — SimBrief 飞行计划与飞行日志",
+  "author": "SkyLog contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pe1ercn/SkyLog.git"
+  },
+  "homepage": "https://github.com/Pe1ercn/SkyLog#readme",
+  "bugs": {
+    "url": "https://github.com/Pe1ercn/SkyLog/issues"
+  },
+  "keywords": [
+    "simbrief",
+    "flight-simulator",
+    "msfs",
+    "flight-log",
+    "leaflet",
+    "electron"
+  ],
+  "private": true,
+  "type": "module",
+  "main": "electron/main.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "start": "npm run build && electron .",
+    "dev": "vite",
+    "test:unit": "node --test --test-isolation=none tests/unit/plan.test.js tests/unit/geo.test.js tests/unit/simbrief.test.js tests/unit/store.test.js",
+    "dist": "npm run build && electron-builder --win nsis",
+    "pack": "npm run build && electron-builder --win dir"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {
+    "electron": "^43.3.0",
+    "electron-builder": "^26.18.0",
+    "vite": "^8.3.5"
+  },
+  "build": {
+    "appId": "com.skylog.app",
+    "productName": "SkyLog",
+    "copyright": "Copyright © 2026 SkyLog",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "shared/**/*",
+      "package.json",
+      "!**/*.map",
+      "!electron/*.corrupt"
+    ],
+    "asar": true,
+    "compression": "maximum",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "SkyLog-Setup-${version}.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SkyLog 航迹",
+      "uninstallDisplayName": "SkyLog 航迹",
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "artifactName": "SkyLog-Setup-${version}.exe"
+    }
+  }
+}

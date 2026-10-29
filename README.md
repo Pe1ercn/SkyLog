@@ -1,7 +1,5 @@
 # SkyLog 航迹
 
-[![CI](https://github.com/Pe1ercn/SkyLog/actions/workflows/ci.yml/badge.svg)](https://github.com/Pe1ercn/SkyLog/actions/workflows/ci.yml)
-
 > 把每一次起飞，都留在地图上。
 
 SkyLog 航迹是一款面向微软模拟飞行玩家的 Windows 桌面飞行计划与飞行日志工具。它从 SimBrief 读取 OFP，把航班号、起降机场、巡航高度、航路、机型和性能数据整理成可回看的记录，并在内置世界地图上画出完整航迹。

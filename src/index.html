@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; media-src 'self' https:; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <title>SkyLog 航迹</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: #f5f8fd;
+        overflow: hidden;
+      }
+      #boot {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        gap: 10px;
+        color: #182338;
+        font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+      }
+      #boot .mark {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 54px;
+        height: 54px;
+        border-radius: 18px;
+        color: #fff;
+        background: linear-gradient(135deg, #2f6df6, #8ed2ff);
+        box-shadow: 0 10px 26px rgba(47, 109, 246, 0.25);
+        font-size: 24px;
+      }
+      #boot strong {
+        font-size: 17px;
+        margin-top: 4px;
+      }
+      #boot span {
+        color: #8a98ad;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="boot">
+        <div class="mark">✈</div>
+        <strong>SkyLog 航迹</strong>
+        <span>正在准备飞行日志…</span>
+      </div>
+    </div>
+    <div id="overlay-root"></div>
+    <div id="toast-root" aria-live="polite"></div>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

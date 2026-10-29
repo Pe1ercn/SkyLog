@@ -1,0 +1,31 @@
+.no-animations *,
+.no-animations *::before,
+.no-animations *::after {
+  animation-duration: 0.001ms !important;
+  animation-delay: 0ms !important;
+  transition-duration: 0.001ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Leaflet's own animations are subtle; keep them from fighting the app chrome. */
+.leaflet-fade-anim .leaflet-tile {
+  transition: opacity 0.2s linear !important;
+}
+
+.leaflet-zoom-animated {
+  transform-origin: 0 0;
+}
