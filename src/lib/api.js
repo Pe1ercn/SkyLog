@@ -51,4 +51,7 @@ export const api = {
   openExternal: (url) => call('openExternal', url),
   copyText: (text) => call('copyText', text),
   getAppInfo: () => call('getAppInfo'),
+  detectGames: () => call('detectGames'),
+  pickGame: () => call('pickGame'),
+  launchGame: (game) => call('launchGame', game),
 };

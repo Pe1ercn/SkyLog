@@ -13,6 +13,7 @@ import {
   errorMessage,
   toast,
 } from '../ui/components.js';
+import { t } from '../lib/i18n.js';
 
 export class SettingsPage {
   constructor(app, root) {
@@ -22,11 +23,13 @@ export class SettingsPage {
     this.testError = '';
     this.testing = false;
     this.savingPilot = false;
+    this.detectingGames = false;
   }
 
   mount() {
     this.root.innerHTML = this.html();
     this.bind();
+    this.loadGames();
   }
 
   show() {
@@ -79,6 +82,17 @@ export class SettingsPage {
           <div id="simbrief-test">${this.testHtml()}</div>
         </section>
 
+        <section class="panel settings-card settings-games">
+          <div class="settings-card-head">
+            <span class="settings-icon">${icon('gamepad', 20)}</span>
+            <div>
+              <h2>${t('游戏与启动', 'Games & Launch')}</h2>
+              <p>${t('自动检测 X-Plane 与微软模拟飞行，并从这里直接启动。', 'Detect X-Plane and Microsoft Flight Simulator, then launch from here.')}</p>
+            </div>
+          </div>
+          <div id="games-body">${this.gamesHtml()}</div>
+        </section>
+
         <section class="panel settings-card">
           <div class="settings-card-head">
             <span class="settings-icon">${icon('sliders', 20)}</span>
@@ -87,6 +101,10 @@ export class SettingsPage {
               <p>单位、时间与地图标签。</p>
             </div>
           </div>
+          ${this.segment('界面语言', 'language', settings.language, [
+            ['zh', '中文'],
+            ['en', 'English'],
+          ])}
           ${this.segment('重量单位', 'weightUnit', settings.weightUnit, [
             ['kg', '千克 kg'],
             ['lb', '磅 lb'],
@@ -160,7 +178,7 @@ export class SettingsPage {
             <span class="about-logo">${icon('plane', 30)}</span>
             <div><strong>SkyLog 航迹</strong><span>版本 ${esc(info.version || '1.0.0')} · Electron ${esc(info.electron || '—')}</span></div>
           </div>
-          <p class="about-copy">SkyLog 通过 SimBrief 提供的公开接口读取飞行计划。飞行计划内容归 SimBrief / Navigraph 所有。地图轮廓与国界来自 Natural Earth 的 1:50m 公共领域数据，不依赖在线瓦片服务。</p>
+          <p class="about-copy">SkyLog 通过 SimBrief 提供的公开接口读取飞行计划。飞行计划内容归 SimBrief / Navigraph 所有。地图轮廓与国界来自 Natural Earth 的 1:50m 公共领域数据；中国台湾、香港、澳门按一个中国原则并入中国，南海诸岛与九段线按中国标准地图呈现，不依赖在线瓦片服务。</p>
           <div class="about-links">
             <button class="text-btn" type="button" data-link="https://www.simbrief.com">SimBrief ${icon('external', 13)}</button>
             <button class="text-btn" type="button" data-link="https://www.navigraph.com">Navigraph ${icon('external', 13)}</button>
@@ -170,6 +188,71 @@ export class SettingsPage {
         </section>
       </div>
     </div>`;
+  }
+
+  gamesHtml() {
+    const games = this.app.games || [];
+    const selected = this.app.selectedGame;
+    const detecting = this.detectingGames || this.app.gamesDetecting;
+    const actions = `<div class="game-actions">
+      <button class="btn btn-secondary" type="button" data-game-action="detect">${icon('refresh', 15)}<span>${t('自动检测', 'Auto-detect')}</span></button>
+      <button class="btn btn-secondary" type="button" data-game-action="pick">${icon('folder', 15)}<span>${t('手动选择', 'Choose manually')}</span></button>
+      <button class="btn btn-primary" type="button" data-game-action="launch" ${selected ? '' : 'disabled'}>${icon('play', 15)}<span>${t('启动游戏', 'Launch game')}</span></button>
+    </div>`;
+
+    if (detecting && !games.length) {
+      return `<div class="game-current is-loading">
+        <span class="game-current-icon">${icon('loading', 20)}</span>
+        <div><strong>${t('正在自动检测游戏…', 'Detecting games…')}</strong><span>${t('扫描 Steam、Microsoft Store 与常见安装位置。', 'Scanning Steam, Microsoft Store and common install locations.')}</span></div>
+      </div>${actions}`;
+    }
+
+    if (!games.length) {
+      return `<div class="game-current is-empty">
+        <span class="game-current-icon">${icon('gamepad', 20)}</span>
+        <div><strong>${t('没有检测到游戏', 'No games detected')}</strong><span>${t('支持 X-Plane 11/12 与微软模拟飞行 2020/2024。可以手动选择可执行文件。', 'Supports X-Plane 11/12 and Microsoft Flight Simulator 2020/2024. You can choose an executable manually.')}</span></div>
+      </div>${actions}`;
+    }
+
+    const selectedTitle = selected?.title || games[0]?.title || '';
+    const selectedSub = selected?.subtitle || (selected?.kind === 'appx' ? 'Microsoft Store' : selected?.source === 'steam' ? 'Steam' : '');
+    return `<div class="game-current">
+      <span class="game-current-icon">${icon('play', 20)}</span>
+      <div class="game-current-copy">
+        <small>${t('默认游戏', 'DEFAULT GAME')}</small>
+        <strong>${esc(selectedTitle)}</strong>
+        <span>${selectedSub ? esc(selectedSub) : t('已保存在本机', 'Saved locally')}</span>
+      </div>
+      <span class="game-ready">${t('就绪', 'READY')}</span>
+    </div>
+    ${actions}
+    <div class="game-list">
+      ${games
+        .map((game, index) => {
+          const isSelected = selected && (selected.target === game.target || selected.id === game.id);
+          return `<button class="game-option ${isSelected ? 'is-selected' : ''}" type="button" data-game-action="select" data-game-index="${index}">
+            <span class="game-option-icon">${icon(game.family === 'xplane' ? 'navigation' : 'plane', 16)}</span>
+            <span class="game-option-copy"><strong>${esc(game.title)}</strong><small>${esc(game.subtitle || game.source || '')}</small></span>
+            <span class="game-option-check">${isSelected ? icon('checkCircle', 16) : icon('chevronRight', 15)}</span>
+          </button>`;
+        })
+        .join('')}
+    </div>`;
+  }
+
+  renderGames() {
+    const target = this.root.querySelector('#games-body');
+    if (!target) return;
+    target.innerHTML = this.gamesHtml();
+  }
+
+  async loadGames() {
+    if (this.detectingGames) return;
+    this.detectingGames = true;
+    this.renderGames();
+    await this.app.detectGames();
+    this.detectingGames = false;
+    this.renderGames();
   }
 
   segment(label, key, value, options) {
@@ -215,6 +298,29 @@ export class SettingsPage {
   }
 
   bind() {
+    if (!this.gameBound) {
+      this.gameBound = true;
+      this.root.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-game-action]');
+        if (!button) return;
+        const action = button.dataset.gameAction;
+        if (action === 'detect') {
+          this.detectingGames = true;
+          this.renderGames();
+          await this.app.detectGames({ force: true });
+          this.detectingGames = false;
+          this.renderGames();
+        } else if (action === 'pick') {
+          await this.app.pickGame();
+          this.renderGames();
+        } else if (action === 'launch') {
+          await this.app.launchGame();
+        } else if (action === 'select') {
+          const game = this.app.games?.[Number(button.dataset.gameIndex)];
+          if (game) await this.app.updateSettings({ game });
+        }
+      });
+    }
     const savePilot = async () => {
       const input = this.root.querySelector('#pilot-id-input');
       const error = this.root.querySelector('#pilot-error');

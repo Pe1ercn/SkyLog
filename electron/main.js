@@ -20,6 +20,13 @@ import {
   SimbriefError,
   toErrorPayload,
 } from './simbrief.js';
+import {
+  GameError,
+  classifyGamePath,
+  detectGames,
+  gameDisplaySubtitle,
+  launchGame,
+} from './games.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -121,7 +128,7 @@ function createWindow() {
     title: 'SkyLog 航迹',
     icon: path.join(projectRoot, 'build', 'icon.png'),
     autoHideMenuBar: true,
-    titleBarStyle: isWindows ? 'hidden' : 'default',
+    titleBarStyle: isWindows ? 'hidden' : 'hiddenInset',
     ...(isWindows
       ? {
           titleBarOverlay: {
@@ -130,7 +137,9 @@ function createWindow() {
             height: 46,
           },
         }
-      : {}),
+      : {
+          trafficLightPosition: { x: 18, y: 17 },
+        }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -376,6 +385,49 @@ function initIpc() {
     return { copied: true };
   });
 
+  handle('games:detect', async () => {
+    const games = await detectGames();
+    return {
+      games: games.map((game) => ({ ...game, subtitle: gameDisplaySubtitle(game) })),
+      platform: process.platform,
+    };
+  });
+
+  handle('games:pick', async () => {
+    const properties = process.platform === 'darwin' ? ['openFile', 'openDirectory'] : ['openFile'];
+    const filters = process.platform === 'win32'
+      ? [{ name: '游戏可执行文件 / Game executable', extensions: ['exe'] }]
+      : [];
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择游戏 / Select game',
+      properties,
+      filters,
+    });
+    if (result.canceled || !result.filePaths?.[0]) return { canceled: true };
+    const selected = result.filePaths[0];
+    const known = classifyGamePath(selected, process.platform);
+    const kind = process.platform === 'darwin' || /\.app$/i.test(selected) ? 'mac-app' : 'exe';
+    const game = known || {
+      id: 'custom',
+      title: path.basename(selected).replace(/\.(exe|app)$/i, ''),
+      family: 'custom',
+      kind,
+      target: selected,
+      path: selected,
+      source: 'manual',
+    };
+    return {
+      canceled: false,
+      game: { ...game, subtitle: gameDisplaySubtitle(game) },
+    };
+  });
+
+  handle('games:launch', async (_event, { game } = {}) => {
+    const selected = game || store.getLibrary().settings?.game;
+    if (!selected) throw new GameError('没有选择游戏 / No game selected.', 'game-not-selected');
+    return launchGame(selected);
+  });
+
   handle('app:info', async () => ({
     version: app.getVersion(),
     electron: process.versions.electron,
@@ -400,7 +452,36 @@ app.whenReady().then(() => {
   logger = createLogger(userDataPath);
   logger(`[app] starting SkyLog ${app.getVersion()} on ${process.platform}`);
   store = new LibraryStore(userDataPath, { logger });
-  Menu.setApplicationMenu(null);
+  if (process.platform === 'darwin') {
+    Menu.setApplicationMenu(Menu.buildFromTemplate([
+      {
+        label: 'SkyLog',
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          { role: 'quit' },
+        ],
+      },
+      {
+        label: 'Edit',
+        submenu: [
+          { role: 'undo' },
+          { role: 'redo' },
+          { type: 'separator' },
+          { role: 'cut' },
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'selectAll' },
+        ],
+      },
+    ]));
+  } else {
+    Menu.setApplicationMenu(null);
+  }
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => {
     callback(false);
   });

@@ -56,6 +56,7 @@ export class HomePage {
           </div>
           <div class="head-actions">
             <button class="btn btn-secondary" type="button" data-action="open-map">${icon('map', 17)}<span>打开地图</span></button>
+            <button class="btn btn-secondary" type="button" data-action="create-simbrief">${icon('sparkles', 17)}<span>创建计划</span></button>
             <button class="btn btn-primary" type="button" data-action="import">${icon('plus', 17)}<span>导入 SimBrief</span></button>
           </div>
         </header>

@@ -76,6 +76,7 @@ const PATHS = {
   lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   play: '<path d="m6 3 14 9-14 9Z"/>',
   stop: '<rect width="14" height="14" x="5" y="5" rx="2"/>',
+  gamepad: '<rect x="2" y="7" width="20" height="10" rx="4"/><line x1="7" x2="11" y1="12" y2="12"/><line x1="9" x2="9" y1="10" y2="14"/><line x1="16" x2="16.01" y1="12" y2="12"/><line x1="19" x2="19.01" y1="10" y2="10"/>',
 };
 
 export function icon(name, size = 18, className = '') {

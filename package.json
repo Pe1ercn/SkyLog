@@ -1,7 +1,7 @@
 {
   "name": "skylog",
   "productName": "SkyLog",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "SkyLog 航迹 — SimBrief 飞行计划与飞行日志",
   "author": "SkyLog contributors",
   "license": "MIT",
@@ -31,9 +31,11 @@
     "build": "vite build",
     "start": "npm run build && electron .",
     "dev": "vite",
-    "test:unit": "node --test --test-isolation=none tests/unit/plan.test.js tests/unit/geo.test.js tests/unit/simbrief.test.js tests/unit/store.test.js",
+    "test:unit": "node --test --test-isolation=none tests/unit/plan.test.js tests/unit/geo.test.js tests/unit/simbrief.test.js tests/unit/store.test.js tests/unit/games.test.js tests/unit/simbrief-create.test.js tests/unit/map-data.test.js",
     "dist": "npm run build && electron-builder --win nsis",
-    "pack": "npm run build && electron-builder --win dir"
+    "pack": "npm run build && electron-builder --win dir",
+    "dist:mac": "npm run build && electron-builder --mac zip",
+    "dist:mac:dmg": "npm run build && electron-builder --mac dmg"
   },
   "dependencies": {
     "leaflet": "^1.9.4"
@@ -55,6 +57,7 @@
       "dist/**/*",
       "electron/**/*",
       "shared/**/*",
+      "build/icon.png",
       "package.json",
       "!**/*.map",
       "!electron/*.corrupt"
@@ -87,6 +90,22 @@
       "uninstallerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico",
       "artifactName": "SkyLog-Setup-${version}.exe"
+    },
+    "mac": {
+      "category": "public.app-category.games",
+      "icon": "build/icon.icns",
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "SkyLog-${version}-mac-${arch}.${ext}",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     }
   }
 }

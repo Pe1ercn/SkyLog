@@ -191,6 +191,10 @@ body:not(.platform-win32) .titlebar {
   padding-right: 18px;
 }
 
+body.platform-darwin .titlebar {
+  padding-left: 84px;
+}
+
 .titlebar-dot {
   width: 6px;
   height: 6px;

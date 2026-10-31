@@ -10,16 +10,23 @@ import { MapPage } from './pages/map.js';
 import { LogPage } from './pages/log.js';
 import { SettingsPage } from './pages/settings.js';
 import { openImportModal } from './ui/import-modal.js';
+import { openCreateSimbrief } from './ui/create-simbrief.js';
 import { openFlightDetail } from './ui/flight-detail.js';
 import { openAirportDetail } from './ui/airport-detail.js';
 import { esc, formatDuration } from './lib/format.js';
+import {
+  applyTranslations,
+  getLanguage,
+  setLanguage,
+  startTranslationObserver,
+} from './lib/i18n.js';
 
 const ROUTES = ['home', 'map', 'log', 'settings'];
 const PAGE_META = {
-  home: { title: '概览', subtitle: '把每一次起飞，都留在地图上。' },
-  map: { title: '飞行地图', subtitle: '航路、机场与航点' },
-  log: { title: '飞行日志', subtitle: '一次游戏，一段旅程' },
-  settings: { title: '设置', subtitle: '让 SkyLog 更像你的日志' },
+  home: { title: '概览', subtitle: '把每一次起飞，都留在地图上。', titleEn: 'Overview' },
+  map: { title: '飞行地图', subtitle: '航路、机场与航点', titleEn: 'World Map' },
+  log: { title: '飞行日志', subtitle: '一次游戏，一段旅程', titleEn: 'Flight Log' },
+  settings: { title: '设置', subtitle: '让 SkyLog 更像你的日志', titleEn: 'Settings' },
 };
 
 export class App {
@@ -36,6 +43,9 @@ export class App {
       logStatus: 'all',
       logSort: 'newest',
     };
+    this.games = [];
+    this.gamesDetecting = false;
+    this.gamesPromise = null;
     this.shellReady = false;
   }
 
@@ -52,6 +62,8 @@ export class App {
       ]);
       this.library = libraryResult.library;
       this.appInfo = appInfo;
+      setLanguage(this.library.settings?.language || 'zh');
+      startTranslationObserver();
       this.syncPlatformClass();
       this.syncSettingsClasses();
       this.pickInitialFlight();
@@ -60,6 +72,7 @@ export class App {
       const initialRoute = this.routeFromHash();
       if (!location.hash) history.replaceState(null, '', '#/home');
       this.showRoute(initialRoute);
+      this.detectGames();
       window.addEventListener('hashchange', () => this.showRoute(this.routeFromHash()));
       this.bindGlobalEvents();
       this.bindShortcuts();
@@ -107,6 +120,11 @@ export class App {
                 <span>导入 SimBrief</span>
                 <kbd>Ctrl I</kbd>
               </button>
+              <div id="game-card"></div>
+              <button class="sidebar-action" type="button" data-action="create-simbrief">
+                <span class="sidebar-action-icon">${icon('sparkles', 16)}</span>
+                <span>创建计划</span>
+              </button>
             </div>
           </div>
           <div class="sidebar-bottom">
@@ -142,6 +160,12 @@ export class App {
       if (actionButton && this.root.contains(actionButton)) {
         if (actionButton.dataset.action === 'quick-import') {
           this.openImport();
+        } else if (actionButton.dataset.action === 'launch-game') {
+          this.launchGame();
+        } else if (actionButton.dataset.action === 'detect-game') {
+          this.detectGames({ force: true });
+        } else if (actionButton.dataset.action === 'create-simbrief') {
+          this.openCreate();
         }
       }
     });
@@ -197,7 +221,16 @@ export class App {
     const page = this.pages.get(target);
     page.root.classList.add('is-active');
     page.show?.();
-    document.title = `SkyLog 航迹 · ${PAGE_META[target].title}`;
+    this.updateDocumentTitle();
+    applyTranslations();
+  }
+
+  updateDocumentTitle() {
+    const target = this.currentRoute || this.routeFromHash();
+    const meta = PAGE_META[target] || PAGE_META.home;
+    document.title = getLanguage() === 'en'
+      ? `SkyLog · ${meta.titleEn}`
+      : `SkyLog 航迹 · ${meta.title}`;
   }
 
   createPage(route) {
@@ -263,8 +296,86 @@ export class App {
       count.textContent = total ? String(total) : '';
     }
     this.renderPilotCard();
+    this.renderGameCard();
     const version = this.sidebarEl.querySelector('#sidebar-version');
     if (version) version.textContent = `SkyLog ${this.appInfo?.version || ''} · 本地数据`;
+  }
+
+  get selectedGame() {
+    return this.settings?.game || this.games[0] || null;
+  }
+
+  renderGameCard() {
+    const target = this.sidebarEl?.querySelector('#game-card');
+    if (!target) return;
+    const game = this.selectedGame;
+    if (game) {
+      target.innerHTML = `<button class="sidebar-action is-game" type="button" data-action="launch-game">
+        <span class="sidebar-action-icon">${icon('play', 15)}</span>
+        <span class="sidebar-game-copy"><em>${esc(game.title)}</em><small>启动游戏</small></span>
+        <span class="sidebar-game-status"></span>
+      </button>`;
+    } else {
+      target.innerHTML = `<button class="sidebar-action is-game is-empty" type="button" data-action="detect-game">
+        <span class="sidebar-action-icon">${icon('gamepad', 16)}</span>
+        <span class="sidebar-game-copy"><em>${this.gamesDetecting ? '正在检测游戏…' : '检测游戏'}</em><small>X-Plane / MSFS</small></span>
+      </button>`;
+    }
+  }
+
+  async detectGames(options = {}) {
+    if (this.gamesDetecting && this.gamesPromise) return this.gamesPromise;
+    if (this.games.length && !options.force) {
+      this.pages.get('settings')?.renderGames?.();
+      return this.games;
+    }
+    this.gamesDetecting = true;
+    this.renderGameCard();
+    this.gamesPromise = api
+      .detectGames()
+      .then((result) => {
+        this.games = Array.isArray(result.games) ? result.games : [];
+        return this.games;
+      })
+      .catch((error) => {
+        toast(errorMessage(error), { type: 'error' });
+        return this.games;
+      })
+      .finally(() => {
+        this.gamesDetecting = false;
+        this.renderGameCard();
+        this.pages.get('settings')?.renderGames?.();
+      });
+    return this.gamesPromise;
+  }
+
+  async launchGame(game = null) {
+    const target = game || this.selectedGame;
+    if (!target) {
+      this.navigate('settings');
+      return false;
+    }
+    try {
+      await api.launchGame(target);
+      toast(`正在启动 ${target.title}`, { type: 'success', title: '游戏启动' });
+      return true;
+    } catch (error) {
+      toast(errorMessage(error), { type: 'error', title: '启动失败' });
+      return false;
+    }
+  }
+
+  async pickGame() {
+    try {
+      const result = await api.pickGame();
+      if (result.canceled || !result.game) return false;
+      const saved = await this.updateSettings({ game: result.game });
+      if (saved) toast('游戏位置已保存', { type: 'success' });
+      return saved;
+    } catch (error) {
+      toast(errorMessage(error), { type: 'error' });
+      return false;
+    }
   }
 
   renderPilotCard() {
@@ -394,14 +505,20 @@ export class App {
     if (options.map !== false && this.currentRoute !== 'map') {
       this.pages.get('map')?.update?.({ silent: true });
     }
+    this.updateDocumentTitle();
+    applyTranslations();
   }
 
   async updateSettings(patch) {
     try {
       const result = await api.updateSettings(patch);
       this.library = result.library;
+      if (Object.prototype.hasOwnProperty.call(patch, 'language')) {
+        setLanguage(this.library.settings?.language || 'zh');
+      }
       this.syncSettingsClasses();
       this.refresh();
+      this.updateDocumentTitle();
       return true;
     } catch (error) {
       toast(errorMessage(error), { type: 'error' });
@@ -446,6 +563,11 @@ export class App {
         );
       },
     });
+  }
+
+  openCreate() {
+    if (!this.library) return;
+    openCreateSimbrief(this);
   }
 
   openFlightDetail(flightId, options = {}) {

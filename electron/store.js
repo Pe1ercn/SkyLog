@@ -21,6 +21,7 @@ export const PALETTE = [
 
 const DEFAULT_SETTINGS = {
   pilotId: '',
+  language: 'zh',
   weightUnit: 'kg',
   distanceUnit: 'nm',
   altitudeUnit: 'ft',
@@ -32,9 +33,11 @@ const DEFAULT_SETTINGS = {
   showAllFlights: false,
   animations: true,
   logSort: 'newest',
+  game: null,
 };
 
 const SETTING_VALUES = {
+  language: ['zh', 'en'],
   weightUnit: ['kg', 'lb'],
   distanceUnit: ['nm', 'km'],
   altitudeUnit: ['ft', 'm'],
@@ -789,6 +792,30 @@ export class LibraryStore {
     for (const key of ['showWaypoints', 'showAlternates', 'showAllFlights', 'animations']) {
       if (Object.prototype.hasOwnProperty.call(patch, key)) {
         next[key] = Boolean(patch[key]);
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'game')) {
+      if (patch.game === null) {
+        next.game = null;
+      } else if (patch.game && typeof patch.game === 'object') {
+        const title = String(patch.game.title || '').trim().slice(0, 120);
+        const kind = String(patch.game.kind || '');
+        const target = String(patch.game.target || patch.game.path || '').trim().slice(0, 1024);
+        if (!title || !target || !['exe', 'appx', 'mac-app'].includes(kind)) {
+          throw new StoreError('游戏配置无效', 'invalid-game');
+        }
+        next.game = {
+          id: String(patch.game.id || 'custom').trim().slice(0, 60) || 'custom',
+          title,
+          family: String(patch.game.family || '').trim().slice(0, 40),
+          kind,
+          target,
+          path: String(patch.game.path || target).trim().slice(0, 1024),
+          source: String(patch.game.source || 'manual').trim().slice(0, 40),
+          version: String(patch.game.version || '').trim().slice(0, 40),
+        };
+      } else {
+        throw new StoreError('游戏配置无效', 'invalid-game');
       }
     }
     this.library.settings = next;

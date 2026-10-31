@@ -1,0 +1,14 @@
+﻿import fs from 'node:fs';
+const file='src/assets/world-countries-50m.json';
+const geo=JSON.parse(fs.readFileSync(file,'utf8'));
+const byIso=(code)=>geo.features.find(f=>String(f.properties?.ISO_A3||'').toUpperCase()===code);
+const china=byIso('CHN'); const taiwan=byIso('TWN'); const hk=byIso('HKG'); const mac=byIso('MAC');
+if(!china) throw new Error('China feature missing');
+const polys=[];
+const add=(f)=>{ if(!f) return; const g=f.geometry; if(!g) return; if(g.type==='Polygon') polys.push(g.coordinates); else if(g.type==='MultiPolygon') polys.push(...g.coordinates); };
+add(china); add(taiwan); add(hk); add(mac);
+china.geometry={type:'MultiPolygon',coordinates:polys};
+china.properties={...china.properties,NAME:'China',NAME_ZH:'中国',ADMIN:'China',SOVEREIGNT:'China',ISO_A3:'CHN',LABEL_X:104.5,LABEL_Y:35,LABELRANK:1};
+geo.features=geo.features.filter(f=>!['TWN','HKG','MAC'].includes(String(f.properties?.ISO_A3||'').toUpperCase()));
+fs.writeFileSync(file, JSON.stringify(geo));
+console.log('features',geo.features.length,'china components',polys.length,'size',fs.statSync(file).size);

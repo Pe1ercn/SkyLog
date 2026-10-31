@@ -784,3 +784,28 @@
     gap: 8px;
   }
 }
+.legend-line.is-sea {
+  background: repeating-linear-gradient(90deg, #6f9fe8 0 4px, transparent 4px 7px);
+}
+
+.country-label-marker.is-sea span {
+  color: #6f8fb8;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.country-label-marker.is-island span {
+  color: #4d7bb8;
+  font-size: 7.5px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  opacity: 0.85;
+}
+
+.map-legend {
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 4px;
+  max-width: calc(100% - 220px);
+}

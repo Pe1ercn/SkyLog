@@ -1,6 +1,8 @@
 import L from 'leaflet';
 import worldCountries from '../assets/world-countries-50m.json';
+import southChinaSea from '../assets/south-china-sea.json';
 import { icon } from '../lib/icons.js';
+import { getLanguage, t } from '../lib/i18n.js';
 import {
   airportCodePrimary,
   airportCodes,
@@ -93,6 +95,9 @@ export class MapPage {
     requestAnimationFrame(() => {
       this.ensureMap();
       this.map?.invalidateSize();
+      this.countryLabelRank = null;
+      this.updateCountryLabels();
+      this.updateSeaLabels();
       this.renderPanel();
       this.renderLayers(this.app.activeFlight(), { animate: !this.initialFitDone });
       if (!this.initialFitDone) {
@@ -132,6 +137,8 @@ export class MapPage {
     this.map.getPane('sky-graticule').style.zIndex = '160';
     this.map.createPane('sky-labels');
     this.map.getPane('sky-labels').style.zIndex = '170';
+    this.map.createPane('sky-sea');
+    this.map.getPane('sky-sea').style.zIndex = '165';
 
     this.baseLayer = L.geoJSON(worldCountries, {
       pane: 'sky-base',
@@ -182,6 +189,33 @@ export class MapPage {
       );
     }
     this.graticuleLayer = L.layerGroup(graticule).addTo(this.map);
+    this.seaLineLayer = L.layerGroup().addTo(this.map);
+    for (const segment of southChinaSea.nineDash || []) {
+      L.polyline(
+        segment.map(([lon, lat]) => [lat, lon]),
+        {
+          pane: 'sky-sea',
+          color: '#6f9fe8',
+          weight: 1.35,
+          opacity: 0.72,
+          dashArray: '4 7',
+          interactive: false,
+        },
+      ).addTo(this.seaLineLayer);
+    }
+    this.seaMarkLayer = L.layerGroup().addTo(this.map);
+    for (const island of southChinaSea.islands || []) {
+      L.circleMarker([island.lat, island.lon], {
+        pane: 'sky-sea',
+        radius: 2.4,
+        color: '#2f6df6',
+        weight: 1,
+        fillColor: '#2f6df6',
+        fillOpacity: 0.78,
+        interactive: false,
+      }).addTo(this.seaMarkLayer);
+    }
+    this.seaLabelLayer = L.layerGroup().addTo(this.map);
     this.countryLabelLayer = L.layerGroup().addTo(this.map);
     this.countryLabelRank = null;
 
@@ -192,6 +226,7 @@ export class MapPage {
       this.stageEl.classList.toggle('is-high-zoom', this.currentZoom >= 7);
       this.updateWaypointLabels();
       this.updateCountryLabels();
+      this.updateSeaLabels();
     });
     if (typeof L.control.scale === 'function') {
       L.control.scale({ position: 'bottomleft', imperial: false, maxWidth: 130 }).addTo(this.map);
@@ -199,6 +234,35 @@ export class MapPage {
     this.currentZoom = this.map.getZoom();
     this.stageEl.classList.toggle('is-low-zoom', this.currentZoom < 4);
     this.updateCountryLabels();
+    this.updateSeaLabels();
+  }
+
+  updateSeaLabels() {
+    if (!this.map || !this.seaLabelLayer) return;
+    const zoom = this.map.getZoom();
+    this.seaLabelLayer.clearLayers();
+    const addLabel = (name, lat, lon, className = '') => {
+      L.marker([lat, lon], {
+        pane: 'sky-labels',
+        interactive: false,
+        keyboard: false,
+        icon: L.divIcon({
+          className: `country-label-marker ${className}`,
+          html: `<span>${esc(name)}</span>`,
+          iconSize: [1, 1],
+          iconAnchor: [0, 0],
+        }),
+      }).addTo(this.seaLabelLayer);
+    };
+    for (const label of southChinaSea.labels || []) {
+      if (zoom < Number(label.minZoom || 3)) continue;
+      addLabel(t(label.name, label.name_en), label.lat, label.lon, 'is-sea');
+    }
+    if (zoom >= 4) {
+      for (const island of southChinaSea.islands || []) {
+        addLabel(t(island.name, island.name_en), island.lat, island.lon, 'is-island');
+      }
+    }
   }
 
   updateCountryLabels() {
@@ -215,7 +279,12 @@ export class MapPage {
       if (!Number.isFinite(labelRank) || labelRank > rank) continue;
       const lat = Number(properties.LABEL_Y);
       const lon = Number(properties.LABEL_X);
-      const name = String(properties.NAME || '').trim();
+      const localized = getLanguage() === 'zh'
+        ? properties.NAME_ZH || properties.NAME
+        : properties.NAME;
+      const name = String(
+        properties.ADMIN === 'China' ? t('中国', 'China') : localized || '',
+      ).trim();
       if (!name || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
       const marker = L.marker([lat, lon], {
         pane: 'sky-labels',
@@ -586,6 +655,7 @@ export class MapPage {
     legend.hidden = false;
     legend.innerHTML = `<span><i class="legend-line is-active" style="--legend-color:${sessionColor(flight.colorIndex)}"></i>${esc(flight.callsign || flight.flightNumber)}</span>
       ${this.app.settings.showAllFlights ? `<span><i class="legend-line is-other"></i>其它航段</span>` : ''}
+      <span><i class="legend-line is-sea"></i>${t('九段线', 'Nine-dash line')}</span>
       <span><i class="legend-dot is-origin"></i>起飞机场</span>
       <span><i class="legend-dot is-destination"></i>到达机场</span>
       ${this.app.settings.showWaypoints && this.app.settings.routeMode !== 'direct' ? `<span><i class="legend-dot is-waypoint"></i>航点</span>` : ''}`;

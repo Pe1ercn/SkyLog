@@ -27,4 +27,7 @@ contextBridge.exposeInMainWorld('skylog', {
   openExternal: (url) => invoke('app:openExternal', { url }),
   copyText: (text) => invoke('app:copyText', { text }),
   getAppInfo: () => invoke('app:info'),
+  detectGames: () => invoke('games:detect'),
+  pickGame: () => invoke('games:pick'),
+  launchGame: (game) => invoke('games:launch', { game }),
 });
