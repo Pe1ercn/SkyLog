@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420">
+<defs>
+ <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#eef7ff"/><stop offset=".55" stop-color="#dcecfb"/><stop offset="1" stop-color="#f8fbff"/></linearGradient>
+ <linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#ffffff"/><stop offset=".55" stop-color="#e6eef9"/><stop offset="1" stop-color="#c9d9ec"/></linearGradient>
+ <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#2f6df6" stop-opacity=".95"/><stop offset="1" stop-color="#8ec5ff" stop-opacity=".8"/></linearGradient>
+ <radialGradient id="sun" cx=".5" cy=".5" r=".5"><stop stop-color="#fff" stop-opacity=".92"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="720" height="420" fill="url(#sky)"/>
+<circle cx="596" cy="84" r="85" fill="url(#sun)"/>
+<circle cx="596" cy="84" r="25" fill="#fff" opacity=".75"/>
+<path d="M0 328c110-35 195 25 310-10s230 2 410-22v124H0Z" fill="#d7e8f8" opacity=".65"/>
+<path d="M0 360c150-20 240 18 370-4s230-4 350 10v54H0Z" fill="#c4dcf2" opacity=".55"/>
+<path d="M90 394 352 292h70l-184 128Z" fill="rgba(255,255,255,.55)"/>
+<path d="M550 394 430 292h-52l116 128Z" fill="rgba(255,255,255,.4)"/>
+<g transform="translate(350 210) scale(1)">
+ <ellipse cx="0" cy="47" rx="280" ry="18" fill="rgba(28,58,98,.12)"/>
+ <path d="M-244 4c12-31 64-48 143-53l184-5c58-2 105 13 124 34 10 11 6 25-12 31-42 13-122 18-233 15L-126 21C-203 17-244 15-244 4Z" fill="url(#body)" stroke="rgba(26,50,84,.22)" stroke-width="1.5"/>
+ <path d="M-236 5h430l-2 9c-66 15-150 21-245 17l-140-6c-30-2-43-9-43-20Z" fill="url(#accent)" opacity=".92"/>
+ <path d="M-120 18 30 98 74 98 22 18Z" fill="#dfeaf8" stroke="rgba(26,50,84,.2)"/>
+ <path d="M-190 13 72 92 112 92 10 13Z" fill="#edf5ff" stroke="rgba(26,50,84,.16)"/>
+ <path d="M-232-2c-20-45-6-76 24-84l24 5c-18 22-21 47-12 79Z" fill="url(#accent)"/>
+ <path d="M-220 0c-3-22 4-43 20-59" stroke="rgba(255,255,255,.65)" stroke-width="3" fill="none"/>
+ <g transform="translate(70 8)"><ellipse cx="0" cy="0" rx="26" ry="12" fill="rgba(17,31,55,.18)"/><path d="M-30 0c0-9 7-15 16-15h28c9 0 16 6 16 15s-7 15-16 15H-14C-23 15-30 9-30 0Z" fill="#edf4ff" stroke="rgba(20,45,80,.18)"/><path d="M-23 0h45" stroke="rgba(20,45,80,.2)"/><circle cx="24" cy="0" r="10" fill="#dbe8fb" stroke="rgba(20,45,80,.2)"/></g>
+ <circle cx="-170" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="-155" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="-140" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="-125" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="-110" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="-95" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="-80" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="-65" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="-50" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="-35" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="-20" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="-5" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="10" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="25" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="40" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="55" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="70" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="85" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="100" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="115" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="130" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="145" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="160" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/><circle cx="175" cy="-12" r="2.1" fill="rgba(24,45,76,.36)"/>
+ <path d="M170-12c24-3 48 2 54 11-14 7-34 9-55 6Z" fill="#bcd3ea" stroke="rgba(26,50,84,.16)"/>
+ <circle cx="206" cy="-4" r="3" fill="#fff" opacity=".8"/>
+ <path d="M-38 2h170M60 22h85" stroke="rgba(255,255,255,.42)" stroke-width="1.5"/>
+</g>
+<g font-family="Segoe UI, Microsoft YaHei, sans-serif" fill="#1c3354">
+ <text x="38" y="58" font-size="11" letter-spacing="3" opacity=".48">SKYLOG FLEET</text>
+ <text x="38" y="96" font-size="30" font-weight="700" letter-spacing="-1">B738</text>
+ <text x="38" y="118" font-size="10" letter-spacing="2" opacity=".52">BOEING 737-800</text>
+</g>
+<g transform="translate(642 58)">
+ <circle cx="0" cy="0" r="25" fill="rgba(255,255,255,.55)" stroke="rgba(26,50,84,.12)"/>
+ <text x="0" y="5" text-anchor="middle" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" font-weight="700" fill="#2f6df6">SL</text>
+</g>
+<text x="682" y="400" text-anchor="end" font-family="Segoe UI, sans-serif" font-size="9" fill="#5a7595" opacity=".65">SKYLOG · AVIATION CARD</text>
+</svg>

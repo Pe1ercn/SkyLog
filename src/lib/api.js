@@ -52,6 +52,8 @@ export const api = {
   copyText: (text) => call('copyText', text),
   getAppInfo: () => call('getAppInfo'),
   detectGames: () => call('detectGames'),
+  scanAllGames: () => call('scanAllGames'),
   pickGame: () => call('pickGame'),
   launchGame: (game) => call('launchGame', game),
+  importBackground: () => call('importBackground'),
 };

@@ -15,6 +15,7 @@ import {
   weekdayCN,
 } from '../lib/format.js';
 import { sessionColor } from '../lib/palette.js';
+import { getLanguage } from '../lib/i18n.js';
 
 export class HomePage {
   constructor(app, root) {
@@ -41,6 +42,10 @@ export class HomePage {
   html() {
     const app = this.app;
     const stats = app.stats();
+    const lang = getLanguage();
+    const legWord = lang === 'en' ? (stats.flights === 1 ? 'leg' : 'legs') : '段';
+    const flownWord = lang === 'en' ? (stats.flown === 1 ? 'leg' : 'legs') : '段';
+    const sessionWord = lang === 'en' ? (stats.sessions === 1 ? 'session' : 'sessions') : '次';
     const hero = app.latestFlight();
     const sessions = app
       .sessionsSorted()
@@ -64,9 +69,9 @@ export class HomePage {
         ${hero ? this.heroHtml(hero) : this.emptyHeroHtml()}
 
         <section class="stat-grid" aria-label="飞行统计">
-          ${this.statCard('航段', stats.flights, 'route', '段', '已保存的飞行计划')}
-          ${this.statCard('游戏会话', stats.sessions, 'layers', '次', '同一次游戏可包含多段')}
-          ${this.statCard('已飞航段', stats.flown, 'checkCircle', '段', stats.planned ? `${stats.planned} 段仍在计划中` : '全部完成')}
+          ${this.statCard('航段', stats.flights, 'route', legWord, '已保存的飞行计划')}
+          ${this.statCard('游戏会话', stats.sessions, 'layers', sessionWord, '同一次游戏可包含多段')}
+          ${this.statCard('已飞航段', stats.flown, 'checkCircle', flownWord, stats.planned ? (lang === 'en' ? `${stats.planned} ${legWord} still planned` : `${stats.planned} 段仍在计划中`) : '全部完成')}
           ${this.distanceStatCard(stats.totalDistanceNm, stats.totalMinutes)}
         </section>
 

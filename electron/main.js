@@ -26,6 +26,7 @@ import {
   detectGames,
   gameDisplaySubtitle,
   launchGame,
+  scanAllGames,
 } from './games.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -386,10 +387,70 @@ function initIpc() {
   });
 
   handle('games:detect', async () => {
-    const games = await detectGames();
+    const quick = await detectGames();
+    const known = store.getLibrary().settings?.knownGames || [];
+    const merged = new Map();
+    for (const game of [...known, ...quick]) {
+      if (!game?.target) continue;
+      const key = `${game.id}|${game.target.toLowerCase()}`;
+      if (!merged.has(key)) merged.set(key, game);
+    }
+    return {
+      games: [...merged.values()].map((game) => ({ ...game, subtitle: gameDisplaySubtitle(game) })),
+      platform: process.platform,
+    };
+  });
+
+  handle('games:scanAll', async () => {
+    const quick = await detectGames();
+    const full = await scanAllGames();
+    const merged = new Map();
+    for (const game of [...quick, ...full.games]) {
+      if (!game?.target) continue;
+      const key = `${game.id}|${game.target.toLowerCase()}`;
+      if (!merged.has(key)) merged.set(key, game);
+    }
+    const games = [...merged.values()];
+    store.updateSettings({ gameScanDone: true, knownGames: games });
     return {
       games: games.map((game) => ({ ...game, subtitle: gameDisplaySubtitle(game) })),
       platform: process.platform,
+      scannedDirs: full.scannedDirs,
+      timedOut: full.timedOut,
+      durationMs: full.durationMs,
+      library: store.getLibrary(),
+    };
+  });
+
+  handle('app:importBackground', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择背景图 / Choose a background image',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] },
+      ],
+    });
+    if (result.canceled || !result.filePaths?.[0]) return { canceled: true };
+    const filePath = result.filePaths[0];
+    let stat;
+    try {
+      stat = fs.statSync(filePath);
+    } catch {
+      throw new StoreError('无法读取背景图', 'invalid-background');
+    }
+    if (!stat.isFile() || stat.size > 8 * 1024 * 1024) {
+      throw new StoreError('背景图不能超过 8 MB', 'invalid-background');
+    }
+    const ext = path.extname(filePath).toLowerCase();
+    const mime = ext === '.png' ? 'image/png'
+      : ext === '.webp' ? 'image/webp'
+        : ext === '.gif' ? 'image/gif'
+          : 'image/jpeg';
+    const data = fs.readFileSync(filePath);
+    return {
+      canceled: false,
+      name: path.basename(filePath),
+      dataUrl: `data:${mime};base64,${data.toString('base64')}`,
     };
   });
 

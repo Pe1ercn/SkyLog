@@ -57,6 +57,7 @@ export class MapPage {
         <div class="map-controls">
           <button class="map-control" type="button" data-map-action="zoom-in" aria-label="放大">${icon('plus', 18)}</button>
           <button class="map-control" type="button" data-map-action="zoom-out" aria-label="缩小">${icon('minus', 18)}</button>
+          <button class="map-control ${this.app.settings.highlightAllRoutes ? 'is-active' : ''}" type="button" data-map-action="highlight" aria-label="高亮全部航线" aria-pressed="${this.app.settings.highlightAllRoutes ? 'true' : 'false'}">${icon('highlighter', 18)}</button>
           <button class="map-control" type="button" data-map-action="fit" aria-label="适应航路">${icon('crosshair', 18)}</button>
         </div>
         <div class="map-legend" id="map-legend"></div>
@@ -79,7 +80,10 @@ export class MapPage {
         if (!this.map) return;
         if (button.dataset.mapAction === 'zoom-in') this.map.zoomIn();
         else if (button.dataset.mapAction === 'zoom-out') this.map.zoomOut();
-        else this.fitActive();
+        else if (button.dataset.mapAction === 'highlight') {
+          this.app.updateSettings({ highlightAllRoutes: !this.app.settings.highlightAllRoutes })
+            .then(() => setTimeout(() => this.fitAll(), 120));
+        } else this.fitActive();
       });
     });
     this.panelEl?.addEventListener('click', (event) => this.handlePanelClick(event));
@@ -320,20 +324,22 @@ export class MapPage {
     this.layerGroup.clearLayers();
     this.waypointMarkers = [];
     const settings = this.app.settings;
+    const highlightAll = Boolean(settings.highlightAllRoutes);
     const animate = Boolean(options.animate) && settings.animations !== false &&
       !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    if (settings.showAllFlights) {
+    if (settings.showAllFlights || highlightAll) {
       const ordered = [...this.app.flights].sort(
         (a, b) => (a.scheduledOut || 0) - (b.scheduledOut || 0),
       );
       for (const item of ordered) {
         if (flight && item.id === flight.id) continue;
         this.addRoute(item, {
-          color: '#8fa6c1',
-          weight: 1.7,
-          opacity: item.status === 'flown' ? 0.42 : 0.3,
-          dashArray: item.status === 'flown' ? null : '4 5',
+          color: highlightAll ? sessionColor(item.colorIndex) : '#8fa6c1',
+          weight: highlightAll ? 2.7 : 1.7,
+          opacity: highlightAll ? 0.9 : item.status === 'flown' ? 0.42 : 0.3,
+          dashArray: highlightAll ? null : item.status === 'flown' ? null : '4 5',
+          glow: highlightAll,
           interactive: true,
           onClick: () => {
             this.app.state.activeFlightId = item.id;
@@ -635,6 +641,7 @@ export class MapPage {
           <button class="mini-toggle ${settings.showWaypoints ? 'is-on' : ''}" type="button" data-panel-action="toggle" data-key="showWaypoints"><span></span>航点</button>
           <button class="mini-toggle ${settings.showAlternates ? 'is-on' : ''}" type="button" data-panel-action="toggle" data-key="showAlternates"><span></span>备降场</button>
           <button class="mini-toggle ${settings.showAllFlights ? 'is-on' : ''}" type="button" data-panel-action="toggle" data-key="showAllFlights"><span></span>全部航班</button>
+          <button class="mini-toggle ${settings.highlightAllRoutes ? 'is-on' : ''}" type="button" data-panel-action="toggle" data-key="highlightAllRoutes"><span></span>全部高亮</button>
         </div>
       </div>
       <div class="map-panel-actions">
@@ -655,6 +662,7 @@ export class MapPage {
     legend.hidden = false;
     legend.innerHTML = `<span><i class="legend-line is-active" style="--legend-color:${sessionColor(flight.colorIndex)}"></i>${esc(flight.callsign || flight.flightNumber)}</span>
       ${this.app.settings.showAllFlights ? `<span><i class="legend-line is-other"></i>其它航段</span>` : ''}
+      ${this.app.settings.highlightAllRoutes ? `<span><i class="legend-line is-highlight"></i>${t('全部高亮', 'All highlighted')}</span>` : ''}
       <span><i class="legend-line is-sea"></i>${t('九段线', 'Nine-dash line')}</span>
       <span><i class="legend-dot is-origin"></i>起飞机场</span>
       <span><i class="legend-dot is-destination"></i>到达机场</span>
@@ -679,7 +687,7 @@ export class MapPage {
       const key = actionEl.dataset.key;
       if (key) {
         this.app.updateSettings({ [key]: !this.app.settings[key] }).then(() => {
-          if (key === 'showAllFlights') this.fitActive();
+          if (key === 'showAllFlights' || key === 'highlightAllRoutes') this.fitAll();
         });
       }
     }
@@ -694,8 +702,38 @@ export class MapPage {
     this.fitActive();
   }
 
+  fitAll() {
+    if (!this.map) return;
+    const points = [];
+    for (const flight of this.app.flights) points.push(...this.activePoints(flight));
+    if (!points.length) {
+      this.map.setView([25, 5], 2, { animate: true });
+      return;
+    }
+    const lons = points.map((point) => Number(point.lon));
+    const lonSpan = Math.max(...lons) - Math.min(...lons);
+    if (lonSpan > 180) {
+      const view = fitView(points);
+      this.map.setView([view.center.lat, view.center.lon], view.zoom, { animate: true });
+      return;
+    }
+    const bounds = L.latLngBounds(points.map((point) => [point.lat, point.lon]));
+    const panelWidth = window.innerWidth > 1180 ? 420 : 360;
+    this.map.fitBounds(bounds, {
+      paddingTopLeft: [panelWidth + 105, 90],
+      paddingBottomRight: [225, 95],
+      maxZoom: 7,
+      animate: true,
+      duration: 0.7,
+    });
+  }
+
   fitActive() {
     if (!this.map) return;
+    if (this.app.settings.highlightAllRoutes) {
+      this.fitAll();
+      return;
+    }
     const active = this.app.activeFlight();
     const points = active ? this.activePoints(active) : [];
     if (!points.length) {

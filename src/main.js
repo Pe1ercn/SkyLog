@@ -2,6 +2,8 @@ import 'leaflet/dist/leaflet.css';
 import './styles/base.css';
 import './styles/components.css';
 import './styles/glass.css';
+import './styles/themes.css';
+import './styles/launch.css';
 import './styles/pages.css';
 import './styles/map.css';
 import './styles/import.css';

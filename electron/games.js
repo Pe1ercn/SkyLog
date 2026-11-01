@@ -23,8 +23,22 @@ export const GAME_IDS = {
   CUSTOM: 'custom',
 };
 
+// Steam launch is required for Steam-managed simulators on macOS. Launching
+// X-Plane.app directly bypasses Steam and makes its bundled Steam API dylib
+// unavailable (the X-Plane 12 Steam release then aborts at startup).
+export const STEAM_APP_IDS = {
+  [GAME_IDS.XPLANE12]: '2014780',
+  [GAME_IDS.XPLANE11]: '269950',
+  [GAME_IDS.MSFS2020]: '1250410',
+  [GAME_IDS.MSFS2024]: '2537590',
+};
+
 function normalizePath(value) {
   return path.normalize(String(value || '')).replace(/[\\/]+$/, '');
+}
+
+function sourceForPath(filePath) {
+  return /[\\/]steamapps[\\/]/i.test(String(filePath || '')) ? 'steam' : 'scan';
 }
 
 function cleanGame(value) {
@@ -70,7 +84,7 @@ export function classifyGamePath(filePath, platform = process.platform) {
         kind: 'mac-app',
         target: clean,
         path: clean,
-        source: 'scan',
+        source: sourceForPath(clean),
       };
     }
     if (haystack.includes('flight simulator')) {
@@ -81,7 +95,7 @@ export function classifyGamePath(filePath, platform = process.platform) {
         kind: 'mac-app',
         target: clean,
         path: clean,
-        source: 'scan',
+        source: sourceForPath(clean),
       };
     }
     return null;
@@ -96,7 +110,7 @@ export function classifyGamePath(filePath, platform = process.platform) {
       kind: 'exe',
       target: clean,
       path: clean,
-      source: 'scan',
+      source: sourceForPath(clean),
     };
   }
 
@@ -108,7 +122,7 @@ export function classifyGamePath(filePath, platform = process.platform) {
       kind: 'exe',
       target: clean,
       path: clean,
-      source: 'scan',
+      source: sourceForPath(clean),
     };
   }
 
@@ -120,7 +134,7 @@ export function classifyGamePath(filePath, platform = process.platform) {
       kind: 'exe',
       target: clean,
       path: clean,
-      source: 'scan',
+      source: sourceForPath(clean),
     };
   }
 
@@ -316,6 +330,172 @@ async function scanSteam(platform) {
   return candidates;
 }
 
+const GAME_FILE_NAMES = new Set([
+  'x-plane.exe',
+  'x-plane',
+  'flightsimulator.exe',
+  'flightsimulator2024.exe',
+]);
+
+const SYSTEM_SCAN_SKIP = new Set([
+  'windows',
+  'winsxs',
+  'system volume information',
+  '$recycle.bin',
+  '$winreagent',
+  'recovery',
+  'perflogs',
+  'config.msi',
+  'node_modules',
+  '.git',
+  '.svn',
+  '.hg',
+  'onedrivetemp',
+  'windowsapps',
+  'test-artifacts',
+]);
+
+const MAC_SCAN_SKIP = new Set([
+  'system',
+  'usr',
+  'bin',
+  'sbin',
+  'private',
+  'dev',
+  'cores',
+  'network',
+  'caches',
+  'logs',
+  'containers',
+  'group containers',
+  'photos library.photoslibrary',
+]);
+
+function fullScanRoots(platform) {
+  if (platform === 'darwin') {
+    return [
+      '/Applications',
+      path.join(os.homedir(), 'Applications'),
+      '/Users',
+      '/Volumes',
+    ];
+  }
+  if (platform !== 'win32') return [];
+  const roots = [];
+  for (const letter of 'CDEFGHIJKLMNOPQRSTUVWXYZ') {
+    const root = `${letter}:\\`;
+    try {
+      if (fs.existsSync(root)) roots.push(root);
+    } catch {
+      // Ignore disconnected drives.
+    }
+  }
+  return [...new Set(roots)];
+}
+
+function shouldSkipScanDirectory(name, fullPath, platform) {
+  const lower = String(name || '').toLowerCase();
+  if (!lower || lower.startsWith('.')) return true;
+  if (SYSTEM_SCAN_SKIP.has(lower)) return true;
+  const normalized = fullPath.replace(/\\/g, '/').toLowerCase();
+  if (platform === 'win32') {
+    if (/\/appdata\/local\/temp(\/|$)/.test(normalized)) return true;
+    if (/\/appdata\/local\/microsoft\/windowsapps(\/|$)/.test(normalized)) return true;
+    if (/\/programdata\/package cache(\/|$)/.test(normalized)) return true;
+    return false;
+  }
+  if (platform === 'darwin') {
+    if (MAC_SCAN_SKIP.has(lower)) return true;
+    if (/\/library\/(caches|logs|containers|group containers)(\/|$)/.test(normalized)) {
+      return true;
+    }
+    if (/\/\.trash(\/|$)/.test(normalized)) return true;
+    return false;
+  }
+  return false;
+}
+
+function isGameBundle(name) {
+  return /\.app$/i.test(name) && /x-plane|flight\s*simulator/i.test(name);
+}
+
+/**
+ * One-time, bounded full-disk discovery. Quick candidates from known install
+ * locations are tried first by detectGames(); this walker exists to catch games
+ * installed on an arbitrary drive/folder. It never follows symlinks and stops
+ * at a time/directory budget so a first launch cannot hang forever.
+ */
+export async function scanAllGames(options = {}) {
+  const platform = options.platform || process.platform;
+  const roots = options.roots || fullScanRoots(platform);
+  const maxDepth = Number.isFinite(options.maxDepth)
+    ? Number(options.maxDepth)
+    : platform === 'darwin' ? 9 : 6;
+  const timeBudgetMs = Number.isFinite(options.timeBudgetMs)
+    ? Number(options.timeBudgetMs)
+    : 150000;
+  const maxDirs = Number.isFinite(options.maxDirs)
+    ? Number(options.maxDirs)
+    : 90000;
+  const concurrency = Math.max(1, Number(options.concurrency) || 8);
+  const started = Date.now();
+  const seen = new Set();
+  const queue = roots.map((root) => ({ dir: root, depth: 0 }));
+  const games = [];
+  let visited = 0;
+  let timedOut = false;
+
+  const addCandidate = (candidate) => {
+    const game = classifyGamePath(candidate, platform);
+    if (game) games.push({ ...game, source: sourceForPath(candidate) });
+  };
+
+  const worker = async () => {
+    while (queue.length > 0 && !timedOut) {
+      if (Date.now() - started > timeBudgetMs || visited >= maxDirs) {
+        timedOut = true;
+        break;
+      }
+      const item = queue.shift();
+      if (!item) break;
+      const key = item.dir.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      visited += 1;
+      let entries;
+      try {
+        entries = await fs.promises.readdir(item.dir, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const entry of entries) {
+        if (timedOut) break;
+        if (entry.isSymbolicLink()) continue;
+        const fullPath = path.join(item.dir, entry.name);
+        if (entry.isDirectory()) {
+          if (platform === 'darwin' && isGameBundle(entry.name)) {
+            addCandidate(fullPath);
+            continue;
+          }
+          if (item.depth < maxDepth && !shouldSkipScanDirectory(entry.name, fullPath, platform)) {
+            queue.push({ dir: fullPath, depth: item.depth + 1 });
+          }
+        } else if (entry.isFile() && GAME_FILE_NAMES.has(entry.name.toLowerCase())) {
+          addCandidate(fullPath);
+        }
+      }
+    }
+  };
+
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
+  return {
+    games: dedupeGames(games),
+    scannedDirs: visited,
+    timedOut,
+    durationMs: Date.now() - started,
+  };
+}
+
 function dedupeGames(games) {
   const seen = new Set();
   const result = [];
@@ -427,9 +607,28 @@ export function launchGame(game) {
   }
   if (clean.kind === 'mac-app') {
     if (!fs.existsSync(clean.target)) throw new GameError('Game app was not found.', 'game-missing');
-    const child = spawn('open', ['-a', clean.target], { detached: true, stdio: 'ignore' });
+    const steamAppId = STEAM_APP_IDS[clean.id];
+    const isSteamManaged = clean.source === 'steam' ||
+      /[\\/]steamapps[\\/]/i.test(clean.target);
+    if (isSteamManaged && steamAppId) {
+      // Steam installs ship a launcher/dylib environment that a direct
+      // `open X-Plane.app` bypasses. Use Steam's own launch protocol.
+      const child = spawn('open', [`steam://rungameid/${steamAppId}`], {
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.unref();
+      return {
+        launched: true,
+        kind: 'mac-app',
+        title: clean.title,
+        launchMode: 'steam',
+        steamAppId,
+      };
+    }
+    const child = spawn('open', [clean.target], { detached: true, stdio: 'ignore' });
     child.unref();
-    return { launched: true, kind: 'mac-app', title: clean.title };
+    return { launched: true, kind: 'mac-app', title: clean.title, launchMode: 'direct' };
   }
   if (clean.kind === 'appx') {
     if (!clean.target.startsWith('shell:AppsFolder\\')) {

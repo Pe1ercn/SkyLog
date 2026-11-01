@@ -134,8 +134,17 @@ export class SettingsPage {
             ${this.toggle('显示航点', '地图上标出每个航路点', 'showWaypoints', settings.showWaypoints)}
             ${this.toggle('显示备降场', '在主航线旁显示备降机场', 'showAlternates', settings.showAlternates)}
             ${this.toggle('显示全部航班', '在地图上叠加所有已存航段', 'showAllFlights', settings.showAllFlights)}
+            ${this.toggle('全部航线高亮', '所有已存航线都使用完整颜色与线宽', 'highlightAllRoutes', settings.highlightAllRoutes)}
             ${this.toggle('界面动画', '路线绘制、面板与数字过渡', 'animations', settings.animations)}
           </div>
+          <div class="setting-row">
+            <span class="setting-label">${t('背景不透明度', 'Background opacity')}</span>
+            <div class="range-field">
+              <input id="settings-bg-opacity" type="range" min="0" max="100" step="1" value="${Math.round((Number(settings.backgroundOpacity) || 0) * 100)}" aria-label="${t('背景不透明度', 'Background opacity')}" />
+              <span id="settings-bg-opacity-value">${Math.round((Number(settings.backgroundOpacity) || 0) * 100)}%</span>
+            </div>
+          </div>
+          <button class="text-btn" type="button" data-route="toolbox">${t('打开工具箱 · 主题与背景图', 'Open Toolbox · themes and backgrounds')} ${icon('arrowRight', 14)}</button>
         </section>
 
         <section class="panel settings-card settings-data">
@@ -193,12 +202,21 @@ export class SettingsPage {
   gamesHtml() {
     const games = this.app.games || [];
     const selected = this.app.selectedGame;
+    const scanning = this.app.gamesScanning;
     const detecting = this.detectingGames || this.app.gamesDetecting;
     const actions = `<div class="game-actions">
       <button class="btn btn-secondary" type="button" data-game-action="detect">${icon('refresh', 15)}<span>${t('自动检测', 'Auto-detect')}</span></button>
+      <button class="btn btn-secondary" type="button" data-game-action="scan-all">${icon('scan', 15)}<span>${t('全盘搜索', 'Scan drives')}</span></button>
       <button class="btn btn-secondary" type="button" data-game-action="pick">${icon('folder', 15)}<span>${t('手动选择', 'Choose manually')}</span></button>
-      <button class="btn btn-primary" type="button" data-game-action="launch" ${selected ? '' : 'disabled'}>${icon('play', 15)}<span>${t('启动游戏', 'Launch game')}</span></button>
+      <button class="btn btn-primary" type="button" data-game-action="launch" ${selected && !scanning ? '' : 'disabled'}>${icon('play', 15)}<span>${t('启动游戏', 'Launch game')}</span></button>
     </div>`;
+
+    if (scanning) {
+      return `<div class="game-current is-loading">
+        <span class="game-current-icon">${icon('loading', 20)}</span>
+        <div><strong>${t('正在全盘搜索游戏本体…', 'Scanning drives for games…')}</strong><span>${t('首次启动会完整扫描一次，避免游戏安装在非默认目录时漏检。', 'The first launch scans all drives so non-default install folders are not missed.')}</span></div>
+      </div>${actions}`;
+    }
 
     if (detecting && !games.length) {
       return `<div class="game-current is-loading">
@@ -310,6 +328,9 @@ export class SettingsPage {
           await this.app.detectGames({ force: true });
           this.detectingGames = false;
           this.renderGames();
+        } else if (action === 'scan-all') {
+          await this.app.scanAllGames({ force: true });
+          this.renderGames();
         } else if (action === 'pick') {
           await this.app.pickGame();
           this.renderGames();
@@ -371,6 +392,19 @@ export class SettingsPage {
         await this.app.updateSettings({ [key]: !this.app.settings[key] });
       });
     });
+
+    const opacity = this.root.querySelector('#settings-bg-opacity');
+    if (opacity) {
+      opacity.addEventListener('input', () => {
+        const value = Number(opacity.value);
+        const label = this.root.querySelector('#settings-bg-opacity-value');
+        if (label) label.textContent = `${value}%`;
+        document.documentElement.style.setProperty('--theme-bg-opacity', String(value / 100));
+      });
+      opacity.addEventListener('change', async () => {
+        await this.app.updateSettings({ backgroundOpacity: Number(opacity.value) / 100 });
+      });
+    }
 
     this.root.querySelector('[data-action="open-folder"]')?.addEventListener('click', async () => {
       try {

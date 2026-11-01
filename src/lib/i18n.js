@@ -86,6 +86,11 @@ const EN = {
   '到达机场': 'Arrival airport',
   '其它航段': 'Other legs',
   '全部完成': 'All complete',
+  '全部航线高亮': 'Highlight all routes',
+  '全部高亮': 'All highlighted',
+  '高亮全部航线': 'Highlight all routes',
+  '背景不透明度': 'Background opacity',
+  '打开工具箱 · 主题与背景图': 'Open Toolbox · themes and backgrounds',
   '九段线': 'Nine-dash line',
   '中国台湾': 'Taiwan, China',
   '南海诸岛': 'South China Sea Islands',
@@ -426,6 +431,8 @@ function plural(n, one, many) {
 
 function translatePatterns(input) {
   let value = translateDates(input);
+  value = value.replace(/已经记录了\s*(\d+)\s*段航程[。.]?/g, (_match, n) => `${n} legs logged.`);
+  value = value.replace(/(\d+)\s*段仍在计划中/g, (_match, n) => `${n} legs still planned`);
   value = value.replace(/(\d+)\s*段已飞/g, (_match, n) => `${n}/${'flown'}`);
   value = value.replace(/(\d+)\s*段/g, (_match, n) => plural(n, 'leg', 'legs'));
   value = value.replace(/(\d+)\s*次/g, (_match, n) => plural(n, 'session', 'sessions'));

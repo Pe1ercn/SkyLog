@@ -2,13 +2,13 @@
 
 > 把每一次起飞，都留在地图上。
 
-SkyLog 航迹是一款面向微软模拟飞行与 X-Plane 玩家的桌面飞行计划与飞行日志工具。它从 SimBrief 读取 OFP，把航班号、起降机场、巡航高度、航路、机型和性能数据整理成可回看的记录，并在内置世界地图上画出完整航迹。v1.1.0 同时提供 Windows 安装包与 macOS 应用包。
+SkyLog 航迹是一款面向微软模拟飞行与 X-Plane 玩家的桌面飞行计划与飞行日志工具。它从 SimBrief 读取 OFP，把航班号、起降机场、巡航高度、航路、机型和性能数据整理成可回看的记录，并在内置世界地图上画出完整航迹。v1.1.1 提供 Windows 安装包与 macOS 应用包，并把首页升级为游戏启动 + 航空知识飞行甲板。
 
 模拟飞行玩家通常在 SimBrief 生成计划，但计划容易散落在网页、PDF 和截图里；同一次游戏里的多个起降也不容易归档。SkyLog 想解决三件事：**计划读得进来、航线看得清楚、飞行记得下来。**
 
 ## English overview
 
-SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulator and X-Plane. It reads your latest SimBrief OFP, draws the route and waypoints on an offline world map, and keeps every leg grouped into a game session. Version 1.1.0 adds automatic X-Plane/MSFS detection and launch, an in-app SimBrief draft workflow, a Chinese/English UI, frosted-glass interactions, and corrected China / South China Sea map data.
+SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulator and X-Plane. It reads your latest SimBrief OFP, draws the route and waypoints on an offline world map, and keeps every leg grouped into a game session. Version 1.1.1 turns the home page into a flight deck with game launching and aviation cards, adds a Toolbox with airline themes and backgrounds, first-launch full-drive game scanning, all-route highlighting, and a macOS Steam launch fix for X-Plane. The original dashboard is available under Details.
 
 ## 界面
 
@@ -63,11 +63,24 @@ SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulat
 - 支持重量、距离、高度、时间显示单位和地图标签的偏好设置。
 - 日志损坏时会自动尝试从备份恢复。
 
-### 游戏与启动（v1.1.0）
+### 游戏与启动（v1.1.1）
 
-- 自动检测 X-Plane 11 / 12 与 Microsoft Flight Simulator 2020 / 2024。
-- 支持 Steam、Microsoft Store、常见安装目录与 macOS Applications 目录；也支持手动选择可执行文件或 `.app`。
-- 在侧边栏或设置页一键启动游戏；游戏路径与选择会保存在本地。
+- 首页左侧按 X-Plane / Microsoft Flight Simulator 两个系列展示游戏，右侧提供机型参数、航空公司图鉴和航空小知识。
+- 自动检测 X-Plane 11 / 12 与 Microsoft Flight Simulator 2020 / 2024；支持 Steam、Microsoft Store、常见安装目录与 macOS Applications 目录。
+- 第一次启动会全盘搜索游戏本体，避免非默认目录漏检；随时可以重新全盘搜索或手动选择可执行文件 / `.app`。
+- 大号启动按钮会显示当前游戏与 Steam / Store / 本地来源；macOS Steam 版 X-Plane 通过 Steam 启动，避免 `libsteam_api.dylib` 缺失崩溃。
+
+### 工具箱与主题（v1.1.1）
+
+- 菜单栏新增「工具箱」，提供 7 个航空公司主题：中国国际航空、中国南方航空、中国东方航空、深圳航空、海南航空、厦门航空、上海航空。
+- 主题会改变应用主色、菜单栏图标与地图以外的背景图；使用 16 位兑换码解锁。
+- 支持导入自定义背景图并调节不透明度（设置或工具箱），地图页面保持干净。
+- 菜单栏切换页面时使用圆形扩散转场；主题是对公开配色的原创演绎，本应用无任何商业行为，如有侵权请联系删改。
+
+### 地图航线
+
+- 新增「全部航线高亮」：所有已存航线使用完整颜色和线宽显示，并自动适配全部航线视野。
+- 航线支持两种显示方式：**航点连线** 或 **起降直连**。
 
 ### 创建 SimBrief（v1.1.0）
 
@@ -112,12 +125,13 @@ SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulat
 
 ## 测试状态
 
-- 39 项单元测试全部通过，覆盖计划解析、地理计算、游戏路径分类、SimBrief 草稿 URL、会话分组、地图数据、备份恢复、CSV 与异常恢复。
-- 已完成 Windows 打包、静默安装、启动、英文切换与卸载测试。
+- 44 项单元测试全部通过，覆盖全盘游戏搜索、Steam App ID、主题/兑换码、计划解析、地理计算、游戏路径分类、SimBrief 草稿 URL、会话分组、地图数据、备份恢复、CSV 与异常恢复。
+- 已完成 Windows 打包、静默安装、启动、英文切换、主题解锁、地图高亮与卸载测试。
 - macOS 包已在 Windows 上完成 bundle 结构、版本、图标与符号链接校验；因当前环境不是 macOS，未做原生启动测试。
 
 ## 更新日志
 
+- [SkyLog 1.1.1 更新内容 / What's New](docs/releases/v1.1.1.md)
 - [SkyLog 1.1.0 更新内容 / What's New](docs/releases/v1.1.0.md)
 - [完整变更记录](CHANGELOG.md)
 

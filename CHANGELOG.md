@@ -1,6 +1,30 @@
 # Changelog
 
-> English summary: SkyLog 1.1.0 adds X-Plane/MSFS auto-detection and launch, an in-app SimBrief draft workflow, a Chinese/English UI, frosted-glass interactions, corrected China / South China Sea map data, and macOS x64/arm64 package support. All 1.0 features remain.
+> English summary: SkyLog 1.1.1 adds a flight-deck home page, a separate Details page, clearer X-Plane/MSFS launch cards, first-launch full-drive scanning, a Toolbox with airline themes/redemption codes/backgrounds, circular menu transitions, all-route highlighting, and a macOS Steam launch fix for X-Plane.
+
+## [1.1.1] - 2026-11-01
+
+### Added
+
+- 首页改为飞行甲板：左侧游戏启动，右侧机型、航司与航空知识卡片。
+- 原概览页独立为菜单栏「详情」。
+- 首次启动全盘搜索游戏本体；支持重新全盘搜索和手动选择。
+- 工具箱：7 个航空公司主题、16 位兑换码、主题色/菜单图标/背景图变化。
+- 自定义背景图导入与不透明度调节（设置和工具箱）。
+- 菜单栏圆形扩散转场。
+- 地图「全部航线高亮」与全部航线视野适配。
+
+### Changed
+
+- Windows / macOS 版本升级至 1.1.1。
+- macOS Steam 版 X-Plane 改用 Steam 启动，修复缺少 `libsteam_api.dylib` 的启动崩溃。
+- README、双语发布说明和版本信息同步更新。
+
+### Verification
+
+- 44 项单元测试通过。
+- Windows 安装、启动、主题、地图高亮与卸载已验证。
+- macOS bundle 结构已验证；未在原生 macOS 启动。真实游戏启动未在无游戏环境端到端验证。
 
 ## [1.1.0] - 2026-10-31
 

@@ -31,10 +31,28 @@ const DEFAULT_SETTINGS = {
   showWaypoints: true,
   showAlternates: false,
   showAllFlights: false,
+  highlightAllRoutes: false,
   animations: true,
   logSort: 'newest',
   game: null,
+  knownGames: [],
+  gameScanDone: false,
+  theme: 'default',
+  themeUnlocks: ['default'],
+  backgroundImage: '',
+  backgroundOpacity: 0.18,
 };
+
+const THEME_IDS = [
+  'default',
+  'airchina',
+  'csair',
+  'ceair',
+  'shenzhen',
+  'hainan',
+  'xiamen',
+  'shanghai',
+];
 
 const SETTING_VALUES = {
   language: ['zh', 'en'],
@@ -45,6 +63,7 @@ const SETTING_VALUES = {
   labelMode: ['both', 'codes', 'name'],
   routeMode: ['waypoints', 'direct'],
   logSort: ['newest', 'oldest'],
+  theme: THEME_IDS,
 };
 
 const MAX_NOTES = 5000;
@@ -203,6 +222,40 @@ function sanitizeSummary(summary) {
   };
 }
 
+function sanitizeKnownGame(value) {
+  if (!value || typeof value !== 'object') return null;
+  const kind = String(value.kind || '');
+  const target = String(value.target || value.path || '').trim().slice(0, 1024);
+  const title = String(value.title || '').trim().slice(0, 120);
+  if (!title || !target || !['exe', 'appx', 'mac-app'].includes(kind)) return null;
+  return {
+    id: String(value.id || 'custom').trim().slice(0, 60) || 'custom',
+    title,
+    family: String(value.family || '').trim().slice(0, 40),
+    kind,
+    target,
+    path: String(value.path || target).trim().slice(0, 1024),
+    source: String(value.source || 'scan').trim().slice(0, 40),
+    version: String(value.version || '').trim().slice(0, 40),
+  };
+}
+
+function sanitizeKnownGames(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const result = [];
+  for (const item of value) {
+    const game = sanitizeKnownGame(item);
+    if (!game) continue;
+    const key = `${game.id}|${game.target.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(game);
+    if (result.length >= 30) break;
+  }
+  return result;
+}
+
 export class LibraryStore {
   constructor(userDataPath, options = {}) {
     this.userDataPath = userDataPath;
@@ -293,7 +346,11 @@ export class LibraryStore {
       ...(input && typeof input === 'object' ? input : {}),
     };
     library.version = LIBRARY_VERSION;
-    library.settings = { ...DEFAULT_SETTINGS, ...(input?.settings || {}) };
+    library.settings = {
+      ...DEFAULT_SETTINGS,
+      ...(input?.settings || {}),
+      knownGames: sanitizeKnownGames(input?.settings?.knownGames),
+    };
     library.sessions = Array.isArray(input?.sessions)
       ? input.sessions
           .filter((session) => session && typeof session === 'object' && session.id)
@@ -789,10 +846,29 @@ export class LibraryStore {
         next[key] = patch[key];
       }
     }
-    for (const key of ['showWaypoints', 'showAlternates', 'showAllFlights', 'animations']) {
+    for (const key of ['showWaypoints', 'showAlternates', 'showAllFlights', 'highlightAllRoutes', 'animations', 'gameScanDone']) {
       if (Object.prototype.hasOwnProperty.call(patch, key)) {
         next[key] = Boolean(patch[key]);
       }
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'themeUnlocks')) {
+      const unlocks = Array.isArray(patch.themeUnlocks) ? patch.themeUnlocks : [];
+      next.themeUnlocks = [...new Set(['default', ...unlocks.filter((id) => THEME_IDS.includes(id))])];
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'backgroundImage')) {
+      const image = String(patch.backgroundImage || '');
+      if (image && (!/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(image) || image.length > 12 * 1024 * 1024)) {
+        throw new StoreError('背景图格式无效或文件过大', 'invalid-background');
+      }
+      next.backgroundImage = image;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'backgroundOpacity')) {
+      const opacity = Number(patch.backgroundOpacity);
+      if (!Number.isFinite(opacity)) throw new StoreError('背景不透明度无效', 'invalid-opacity');
+      next.backgroundOpacity = Math.min(1, Math.max(0, opacity));
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'knownGames')) {
+      next.knownGames = sanitizeKnownGames(patch.knownGames);
     }
     if (Object.prototype.hasOwnProperty.call(patch, 'game')) {
       if (patch.game === null) {

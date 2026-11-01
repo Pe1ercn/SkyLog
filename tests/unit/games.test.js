@@ -1,8 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   classifyGamePath,
   parseSteamLibraries,
+  scanAllGames,
+  STEAM_APP_IDS,
 } from '../../electron/games.js';
 
 test('classifies X-Plane and MSFS executables', () => {
@@ -39,4 +44,40 @@ test('parses Steam library paths from libraryfolders.vdf', () => {
 
 test('rejects unrelated executables', () => {
   assert.equal(classifyGamePath('C:\\Windows\\notepad.exe', 'win32'), null);
+});
+
+test('marks Steam-managed installs and knows their Steam app IDs', () => {
+  const steam = classifyGamePath(
+    'C:\\SteamLibrary\\steamapps\\common\\X-Plane 12\\X-Plane.exe',
+    'win32',
+  );
+  assert.equal(steam.source, 'steam');
+  assert.equal(STEAM_APP_IDS['xplane-12'], '2014780');
+  assert.equal(STEAM_APP_IDS['msfs-2020'], '1250410');
+});
+
+test('full scan finds games in arbitrary folders', async () => {
+  const artifacts = path.join(process.cwd(), 'test-artifacts');
+  fs.mkdirSync(artifacts, { recursive: true });
+  const root = fs.mkdtempSync(path.join(artifacts, 'game-scan-'));
+  try {
+    const xplaneDir = path.join(root, 'Games', 'X-Plane 12');
+    const msfsDir = path.join(root, 'Sim', 'Flight Simulator 2024');
+    fs.mkdirSync(xplaneDir, { recursive: true });
+    fs.mkdirSync(msfsDir, { recursive: true });
+    fs.writeFileSync(path.join(xplaneDir, 'X-Plane.exe'), '');
+    fs.writeFileSync(path.join(msfsDir, 'FlightSimulator2024.exe'), '');
+    const result = await scanAllGames({
+      platform: 'win32',
+      roots: [root],
+      maxDepth: 4,
+      timeBudgetMs: 5000,
+      maxDirs: 1000,
+    });
+    const ids = result.games.map((game) => game.id).sort();
+    assert.deepEqual(ids, ['msfs-2024', 'xplane-12']);
+    assert.ok(result.scannedDirs > 0);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });

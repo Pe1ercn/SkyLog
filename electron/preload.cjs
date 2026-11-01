@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('skylog', {
   copyText: (text) => invoke('app:copyText', { text }),
   getAppInfo: () => invoke('app:info'),
   detectGames: () => invoke('games:detect'),
+  scanAllGames: () => invoke('games:scanAll'),
   pickGame: () => invoke('games:pick'),
   launchGame: (game) => invoke('games:launch', { game }),
+  importBackground: () => invoke('app:importBackground'),
 });

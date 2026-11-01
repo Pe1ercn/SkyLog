@@ -6,9 +6,11 @@ import {
   toast,
 } from './ui/components.js';
 import { HomePage } from './pages/home.js';
+import { LaunchPage } from './pages/launch.js';
 import { MapPage } from './pages/map.js';
 import { LogPage } from './pages/log.js';
 import { SettingsPage } from './pages/settings.js';
+import { ToolboxPage } from './pages/toolbox.js';
 import { openImportModal } from './ui/import-modal.js';
 import { openCreateSimbrief } from './ui/create-simbrief.js';
 import { openFlightDetail } from './ui/flight-detail.js';
@@ -19,13 +21,29 @@ import {
   getLanguage,
   setLanguage,
   startTranslationObserver,
+  t,
 } from './lib/i18n.js';
+import {
+  getTheme,
+  navIconFor,
+  themeBackgroundUri,
+} from './lib/themes.js';
 
-const ROUTES = ['home', 'map', 'log', 'settings'];
+const ROUTES = ['home', 'details', 'map', 'log', 'toolbox', 'settings'];
+const NAV_ITEMS = [
+  { route: 'home', label: '首页', titleEn: 'Home', icon: 'home' },
+  { route: 'details', label: '详情', titleEn: 'Details', icon: 'file' },
+  { route: 'map', label: '飞行地图', titleEn: 'World Map', icon: 'map' },
+  { route: 'log', label: '飞行日志', titleEn: 'Flight Log', icon: 'book', count: true },
+  { route: 'toolbox', label: '工具箱', titleEn: 'Toolbox', icon: 'toolbox' },
+  { route: 'settings', label: '设置', titleEn: 'Settings', icon: 'settings' },
+];
 const PAGE_META = {
-  home: { title: '概览', subtitle: '把每一次起飞，都留在地图上。', titleEn: 'Overview' },
+  home: { title: '首页', subtitle: '选择模拟器，准备起飞。', titleEn: 'Home' },
+  details: { title: '详情', subtitle: '把每一次起飞，都留在地图上。', titleEn: 'Details' },
   map: { title: '飞行地图', subtitle: '航路、机场与航点', titleEn: 'World Map' },
   log: { title: '飞行日志', subtitle: '一次游戏，一段旅程', titleEn: 'Flight Log' },
+  toolbox: { title: '工具箱', subtitle: '主题、背景与个性设置', titleEn: 'Toolbox' },
   settings: { title: '设置', subtitle: '让 SkyLog 更像你的日志', titleEn: 'Settings' },
 };
 
@@ -46,6 +64,12 @@ export class App {
     this.games = [];
     this.gamesDetecting = false;
     this.gamesPromise = null;
+    this.gamesScanning = false;
+    this.gamesScanPromise = null;
+    this.gamesScanInfo = null;
+    this.gamesScanStarted = false;
+    this.routeTimer = null;
+    this.theme = getTheme('default');
     this.shellReady = false;
   }
 
@@ -66,6 +90,7 @@ export class App {
       startTranslationObserver();
       this.syncPlatformClass();
       this.syncSettingsClasses();
+      this.applyTheme();
       this.pickInitialFlight();
       this.syncSidebar();
       this.showLoading(false);
@@ -92,6 +117,7 @@ export class App {
 
   renderShell() {
     this.root.innerHTML = `
+      <div class="theme-backdrop" id="theme-backdrop" aria-hidden="true"></div>
       <div class="app-shell">
         <header class="titlebar">
           <div class="titlebar-brand">
@@ -107,12 +133,7 @@ export class App {
         </header>
         <aside class="sidebar" id="sidebar">
           <div class="sidebar-top">
-            <nav class="nav-list" aria-label="主导航">
-              <button class="nav-item" type="button" data-route="home">${icon('home', 19)}<span>概览</span></button>
-              <button class="nav-item" type="button" data-route="map">${icon('map', 19)}<span>飞行地图</span></button>
-              <button class="nav-item" type="button" data-route="log">${icon('book', 19)}<span>飞行日志</span><span class="nav-count" id="nav-count"></span></button>
-              <button class="nav-item" type="button" data-route="settings">${icon('settings', 19)}<span>设置</span></button>
-            </nav>
+            <nav class="nav-list" id="nav-list" aria-label="主导航"></nav>
             <div class="sidebar-section">
               <div class="sidebar-label">快速操作</div>
               <button class="sidebar-action" type="button" data-action="quick-import">
@@ -144,8 +165,50 @@ export class App {
         </main>
       </div>`;
     this.sidebarEl = this.root.querySelector('#sidebar');
+    this.navEl = this.root.querySelector('#nav-list');
+    this.themeBackdropEl = this.root.querySelector('#theme-backdrop');
     this.hostEl = this.root.querySelector('#page-host');
     this.shellReady = true;
+    this.renderNavigation();
+  }
+
+  renderNavigation() {
+    if (!this.navEl) return;
+    const theme = this.theme || getTheme('default');
+    this.navEl.innerHTML = NAV_ITEMS.map((item) => {
+      const iconName = navIconFor(theme, item.route) || item.icon;
+      const label = getLanguage() === 'en' ? item.titleEn : item.label;
+      const count = item.count ? '<span class="nav-count" id="nav-count"></span>' : '';
+      return `<button class="nav-item" type="button" data-route="${item.route}">${icon(iconName, 19)}<span>${label}</span>${count}</button>`;
+    }).join('');
+    this.syncNavActive();
+  }
+
+  syncNavActive() {
+    if (!this.navEl) return;
+    for (const item of this.navEl.querySelectorAll('[data-route]')) {
+      item.classList.toggle('is-active', item.dataset.route === this.currentRoute);
+      item.setAttribute('aria-current', item.dataset.route === this.currentRoute ? 'page' : 'false');
+    }
+  }
+
+  applyTheme() {
+    const settings = this.library?.settings || {};
+    const theme = getTheme(settings.theme || 'default', settings.themeUnlocks || ['default']);
+    this.theme = theme;
+    const root = document.documentElement;
+    root.style.setProperty('--primary', theme.primary);
+    root.style.setProperty('--primary-deep', theme.deep);
+    root.style.setProperty('--primary-soft', theme.soft);
+    root.style.setProperty('--primary-soft-2', theme.soft2);
+    root.style.setProperty('--theme-accent', theme.accent);
+    root.style.setProperty('--theme-bg-image', `url("${settings.backgroundImage || themeBackgroundUri(theme)}")`);
+    root.style.setProperty('--theme-bg-opacity', String(
+      Number.isFinite(Number(settings.backgroundOpacity)) ? Number(settings.backgroundOpacity) : 0.18,
+    ));
+    document.body.dataset.theme = theme.id;
+    document.documentElement.dataset.theme = theme.id;
+    this.renderNavigation();
   }
 
   bindGlobalEvents() {
@@ -153,7 +216,9 @@ export class App {
       const routeButton = event.target.closest('[data-route]');
       if (routeButton && this.root.contains(routeButton)) {
         event.preventDefault();
-        this.navigate(routeButton.dataset.route);
+        this.navigate(routeButton.dataset.route, {
+          origin: { x: event.clientX, y: event.clientY },
+        });
         return;
       }
       const actionButton = event.target.closest('[data-action]');
@@ -162,8 +227,8 @@ export class App {
           this.openImport();
         } else if (actionButton.dataset.action === 'launch-game') {
           this.launchGame();
-        } else if (actionButton.dataset.action === 'detect-game') {
-          this.detectGames({ force: true });
+        } else if (actionButton.dataset.action === 'detect-game' || actionButton.dataset.action === 'scan-games') {
+          this.scanAllGames({ force: true });
         } else if (actionButton.dataset.action === 'create-simbrief') {
           this.openCreate();
         }
@@ -182,7 +247,7 @@ export class App {
         event.preventDefault();
         this.openImport();
       }
-      if ((event.ctrlKey || event.metaKey) && ['1', '2', '3', '4'].includes(event.key)) {
+      if ((event.ctrlKey || event.metaKey) && ['1', '2', '3', '4', '5', '6'].includes(event.key)) {
         event.preventDefault();
         this.navigate(ROUTES[Number(event.key) - 1]);
       }
@@ -194,16 +259,50 @@ export class App {
     return ROUTES.includes(value) ? value : 'home';
   }
 
-  navigate(route) {
+  canAnimateRoute() {
+    return this.library?.settings?.animations !== false &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  playRouteRipple(origin) {
+    if (!origin || !this.canAnimateRoute()) return;
+    const x = Number(origin.x) || window.innerWidth / 2;
+    const y = Number(origin.y) || window.innerHeight / 2;
+    const size = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y),
+    ) * 2.25;
+    const ripple = document.createElement('span');
+    ripple.className = 'route-ripple';
+    ripple.style.left = `${x}px`;
+    ripple.style.top = `${y}px`;
+    ripple.style.width = `${size}px`;
+    ripple.style.height = `${size}px`;
+    ripple.style.background = `radial-gradient(circle, ${this.theme?.primary || '#2f6df6'} 0%, ${this.theme?.deep || '#2458d6'} 70%, transparent 72%)`;
+    document.body.appendChild(ripple);
+    requestAnimationFrame(() => ripple.classList.add('is-open'));
+    setTimeout(() => ripple.remove(), 760);
+  }
+
+  navigate(route, options = {}) {
     const target = ROUTES.includes(route) ? route : 'home';
     if (this.currentRoute === target) {
       this.pages.get(target)?.show?.();
       return;
     }
-    if (location.hash !== `#/${target}`) {
-      location.hash = `#/${target}`;
+    const go = () => {
+      if (location.hash !== `#/${target}`) {
+        location.hash = `#/${target}`;
+      } else {
+        this.showRoute(target);
+      }
+    };
+    if (options.origin && this.canAnimateRoute()) {
+      clearTimeout(this.routeTimer);
+      this.playRouteRipple(options.origin);
+      this.routeTimer = setTimeout(go, 420);
     } else {
-      this.showRoute(target);
+      go();
     }
   }
 
@@ -211,6 +310,7 @@ export class App {
     if (!this.library) return;
     const target = ROUTES.includes(route) ? route : 'home';
     this.currentRoute = target;
+    document.body.dataset.route = target;
     this.syncSidebar();
     this.pages.forEach((page, key) => {
       page.root.classList.toggle('is-active', key === target);
@@ -240,9 +340,11 @@ export class App {
     root.innerHTML = '';
     this.hostEl.appendChild(root);
     let page;
-    if (route === 'home') page = new HomePage(this, root);
+    if (route === 'home') page = new LaunchPage(this, root);
+    else if (route === 'details') page = new HomePage(this, root);
     else if (route === 'map') page = new MapPage(this, root);
     else if (route === 'log') page = new LogPage(this, root);
+    else if (route === 'toolbox') page = new ToolboxPage(this, root);
     else page = new SettingsPage(this, root);
     this.pages.set(route, page);
     page.mount();
@@ -286,10 +388,7 @@ export class App {
 
   syncSidebar() {
     if (!this.sidebarEl) return;
-    for (const item of this.sidebarEl.querySelectorAll('[data-route]')) {
-      item.classList.toggle('is-active', item.dataset.route === this.currentRoute);
-      item.setAttribute('aria-current', item.dataset.route === this.currentRoute ? 'page' : 'false');
-    }
+    this.syncNavActive();
     const count = this.sidebarEl.querySelector('#nav-count');
     if (count) {
       const total = this.library?.flights?.length || 0;
@@ -309,16 +408,21 @@ export class App {
     const target = this.sidebarEl?.querySelector('#game-card');
     if (!target) return;
     const game = this.selectedGame;
-    if (game) {
+    if (this.gamesScanning) {
+      target.innerHTML = `<button class="sidebar-action is-game is-scanning" type="button" data-action="scan-games">
+        <span class="sidebar-action-icon">${icon('loading', 16)}</span>
+        <span class="sidebar-game-copy"><em>${t('正在全盘搜索…', 'Scanning drives…')}</em><small>${t('首次启动扫描游戏本体', 'First-launch drive scan')}</small></span>
+      </button>`;
+    } else if (game) {
       target.innerHTML = `<button class="sidebar-action is-game" type="button" data-action="launch-game">
         <span class="sidebar-action-icon">${icon('play', 15)}</span>
-        <span class="sidebar-game-copy"><em>${esc(game.title)}</em><small>启动游戏</small></span>
+        <span class="sidebar-game-copy"><em>${esc(game.title)}</em><small>${t('启动游戏', 'Launch game')}</small></span>
         <span class="sidebar-game-status"></span>
       </button>`;
     } else {
-      target.innerHTML = `<button class="sidebar-action is-game is-empty" type="button" data-action="detect-game">
+      target.innerHTML = `<button class="sidebar-action is-game is-empty" type="button" data-action="scan-games">
         <span class="sidebar-action-icon">${icon('gamepad', 16)}</span>
-        <span class="sidebar-game-copy"><em>${this.gamesDetecting ? '正在检测游戏…' : '检测游戏'}</em><small>X-Plane / MSFS</small></span>
+        <span class="sidebar-game-copy"><em>${this.gamesDetecting ? t('正在检测游戏…', 'Detecting games…') : t('搜索游戏本体', 'Find a game')}</em><small>X-Plane / MSFS</small></span>
       </button>`;
     }
   }
@@ -327,6 +431,7 @@ export class App {
     if (this.gamesDetecting && this.gamesPromise) return this.gamesPromise;
     if (this.games.length && !options.force) {
       this.pages.get('settings')?.renderGames?.();
+      this.pages.get('home')?.update?.();
       return this.games;
     }
     this.gamesDetecting = true;
@@ -335,6 +440,7 @@ export class App {
       .detectGames()
       .then((result) => {
         this.games = Array.isArray(result.games) ? result.games : [];
+        this.pages.get('home')?.update?.();
         return this.games;
       })
       .catch((error) => {
@@ -345,8 +451,56 @@ export class App {
         this.gamesDetecting = false;
         this.renderGameCard();
         this.pages.get('settings')?.renderGames?.();
+        this.pages.get('home')?.update?.();
+        if (!this.settings.gameScanDone && !this.gamesScanStarted) {
+          this.scanAllGames({ automatic: true });
+        }
       });
     return this.gamesPromise;
+  }
+
+  async scanAllGames(options = {}) {
+    if (this.gamesScanning && this.gamesScanPromise) return this.gamesScanPromise;
+    this.gamesScanStarted = true;
+    this.gamesScanning = true;
+    this.renderGameCard();
+    this.pages.get('home')?.update?.();
+    this.pages.get('settings')?.renderGames?.();
+    this.gamesScanPromise = api
+      .scanAllGames()
+      .then((result) => {
+        this.games = Array.isArray(result.games) ? result.games : this.games;
+        this.gamesScanInfo = {
+          scannedDirs: result.scannedDirs,
+          timedOut: Boolean(result.timedOut),
+          durationMs: result.durationMs,
+        };
+        if (result.library) this.library = result.library;
+        this.pages.get('home')?.update?.();
+        this.pages.get('settings')?.renderGames?.();
+        if (!result.timedOut) {
+          toast(
+            this.games.length
+              ? `全盘搜索完成，发现 ${this.games.length} 个游戏`
+              : '全盘搜索完成，暂未发现 X-Plane / MSFS',
+            { type: 'success', title: '游戏搜索' },
+          );
+        } else {
+          toast('全盘搜索已达到时间上限，可稍后重新搜索。', { type: 'info', title: '搜索完成' });
+        }
+        return this.games;
+      })
+      .catch((error) => {
+        toast(errorMessage(error), { type: 'error', title: '搜索失败' });
+        return this.games;
+      })
+      .finally(() => {
+        this.gamesScanning = false;
+        this.renderGameCard();
+        this.pages.get('home')?.update?.();
+        this.pages.get('settings')?.renderGames?.();
+      });
+    return this.gamesScanPromise;
   }
 
   async launchGame(game = null) {
@@ -498,6 +652,7 @@ export class App {
 
   refresh(options = {}) {
     this.pickInitialFlight();
+    this.applyTheme();
     this.syncSidebar();
     this.syncSettingsClasses();
     const current = this.pages.get(this.currentRoute);
@@ -516,6 +671,7 @@ export class App {
       if (Object.prototype.hasOwnProperty.call(patch, 'language')) {
         setLanguage(this.library.settings?.language || 'zh');
       }
+      this.applyTheme();
       this.syncSettingsClasses();
       this.refresh();
       this.updateDocumentTitle();

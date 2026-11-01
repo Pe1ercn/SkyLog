@@ -1,0 +1,379 @@
+/* Airline themes, backdrop and route transition */
+.theme-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: var(--theme-bg-image);
+  background-size: cover;
+  background-position: center;
+  opacity: var(--theme-bg-opacity, 0.18);
+  filter: saturate(0.95);
+  transition: opacity 0.45s ease, background-image 0.45s ease;
+}
+
+.theme-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(980px 560px at 76% -8%, rgba(255, 255, 255, 0.42), transparent 64%),
+    linear-gradient(115deg, rgba(247, 251, 255, 0.32), rgba(247, 251, 255, 0.08));
+}
+
+body[data-route="map"] .theme-backdrop {
+  opacity: 0 !important;
+}
+
+.app-shell {
+  position: relative;
+  z-index: 1;
+}
+
+/* Theme-aware primary surfaces. The base skin remains intact for neutral
+   elements; these selectors tint the most visible controls. */
+body[data-theme] .btn-primary {
+  background:
+    radial-gradient(circle at 22% 0%, rgba(255, 255, 255, 0.2), transparent 42%),
+    linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 66%, var(--theme-accent, #72a6ff)));
+  border-color: color-mix(in srgb, var(--primary) 72%, white);
+  box-shadow:
+    0 9px 24px color-mix(in srgb, var(--primary) 25%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+body[data-theme] .btn-primary:hover {
+  box-shadow:
+    0 13px 30px color-mix(in srgb, var(--primary) 32%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+body[data-theme] .brand-mark {
+  background:
+    radial-gradient(circle at 28% 20%, rgba(255, 255, 255, 0.45), transparent 42%),
+    linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 58%, var(--theme-accent, #8ed2ff)) 64%, var(--theme-accent, #8ed2ff) 100%);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--primary) 28%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+body[data-theme] .nav-item:hover {
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+}
+
+body[data-theme] .nav-item.is-active {
+  color: var(--primary-deep);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--primary) 15%, transparent), color-mix(in srgb, var(--primary) 5%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+body[data-theme] .nav-item.is-active::before {
+  background: var(--primary);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+body[data-theme] .nav-count {
+  background: color-mix(in srgb, var(--primary) 13%, transparent);
+  color: var(--primary-deep);
+}
+
+body[data-theme] .sidebar-action:hover {
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  background: var(--primary-soft-2);
+  color: var(--primary-deep);
+}
+
+body[data-theme] .sidebar-action-icon {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+body[data-theme] .segmented button.is-active {
+  color: var(--primary-deep);
+}
+
+body[data-theme] .status-chip.is-planned,
+body[data-theme] .status-chip.is-flown {
+  border-color: color-mix(in srgb, var(--primary) 18%, var(--line));
+}
+
+body[data-theme] .map-control:hover {
+  color: var(--primary-deep);
+  border-color: color-mix(in srgb, var(--primary) 30%, white);
+}
+
+body[data-theme] .titlebar-dot {
+  background: var(--theme-accent, #38c5a0);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-accent, #38c5a0) 12%, transparent);
+}
+
+body[data-theme] ::selection {
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+/* Circular route transition */
+.route-ripple {
+  position: fixed;
+  z-index: 9999;
+  display: block;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0.62;
+  transition:
+    transform 0.68s cubic-bezier(0.22, 0.85, 0.25, 1),
+    opacity 0.68s cubic-bezier(0.22, 0.85, 0.25, 1);
+  will-change: transform, opacity;
+}
+
+.route-ripple.is-open {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 0;
+}
+
+/* Toolbox */
+.toolbox-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.32fr) minmax(310px, 0.68fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.toolbox-themes,
+.toolbox-background,
+.toolbox-about {
+  padding: 21px;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+}
+
+.theme-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-height: 188px;
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background:
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--theme-swatch) 16%, transparent), transparent 45%),
+    rgba(255, 255, 255, 0.48);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.theme-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--theme-swatch) 32%, var(--line));
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-card.is-active {
+  border-color: color-mix(in srgb, var(--theme-swatch) 48%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-swatch) 9%, transparent), var(--shadow-sm);
+}
+
+.theme-card.is-locked {
+  background:
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--theme-swatch) 10%, transparent), transparent 45%),
+    rgba(255, 255, 255, 0.36);
+}
+
+.theme-card-visual {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+}
+
+.theme-code-mark {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 14px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--theme-swatch), color-mix(in srgb, var(--theme-swatch) 62%, #1b2d49));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--theme-swatch) 22%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.theme-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  border: 1px solid color-mix(in srgb, var(--theme-swatch) 18%, var(--line));
+  border-radius: 999px;
+  color: var(--theme-swatch);
+  background: color-mix(in srgb, var(--theme-swatch-soft) 54%, white);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.theme-card-copy h3 {
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.theme-card-copy p {
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.theme-card-copy small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted-2);
+  font-size: 9px;
+}
+
+.theme-card > .btn {
+  width: fit-content;
+  margin-top: auto;
+}
+
+.theme-unlock {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.theme-unlock .field-input {
+  height: 32px;
+  padding: 0 9px;
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.theme-unlock .btn {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+.field-input.is-invalid {
+  border-color: #d95b68;
+  box-shadow: 0 0 0 3px rgba(217, 91, 104, 0.1);
+}
+
+.background-preview {
+  position: relative;
+  min-height: 154px;
+  margin-top: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 13px;
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+.background-preview::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 40%, rgba(14, 32, 55, 0.24));
+}
+
+.background-preview > span,
+.background-preview > em {
+  position: absolute;
+  z-index: 1;
+  left: 11px;
+  color: #fff;
+  font-style: normal;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
+}
+
+.background-preview > span {
+  bottom: 25px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.background-preview > em {
+  bottom: 11px;
+  font-size: 9px;
+  opacity: 0.8;
+}
+
+.background-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.range-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-field input[type="range"] {
+  width: 150px;
+  accent-color: var(--primary);
+}
+
+.range-field span {
+  min-width: 31px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-align: right;
+}
+
+.toolbox-side {
+  display: grid;
+  gap: 16px;
+}
+
+.toolbox-about .about-fineprint {
+  margin-top: 12px;
+}
+
+@media (max-width: 1100px) {
+  .toolbox-layout {
+    grid-template-columns: 1fr;
+  }
+  .toolbox-side {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .theme-grid,
+  .toolbox-side {
+    grid-template-columns: 1fr;
+  }
+  .toolbox-themes,
+  .toolbox-background,
+  .toolbox-about {
+    padding: 16px;
+  }
+}
+
+/* Map highlight */
+.map-control.is-active {
+  color: var(--primary-deep);
+  border-color: color-mix(in srgb, var(--primary) 28%, white);
+  background: color-mix(in srgb, var(--primary-soft) 58%, white);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 8%, transparent), var(--shadow-xs);
+}
+
+.legend-line.is-highlight {
+  background: linear-gradient(90deg, var(--primary), var(--theme-accent, #8ec5ff));
+}
