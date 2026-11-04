@@ -563,6 +563,30 @@
   object-fit: cover;
 }
 
+.knowledge-aircraft-id {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--primary) 10%, var(--line));
+  border-radius: 10px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.46);
+  font-size: 9.5px;
+}
+
+.knowledge-aircraft-id b {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.knowledge-photo-note {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted-2);
+  font-size: 9px;
+}
+
 .knowledge-image-code {
   position: absolute;
   top: 11px;

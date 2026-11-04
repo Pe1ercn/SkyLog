@@ -11,7 +11,10 @@ import {
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import sevenZip from '7zip-bin';
 import { LibraryStore, StoreError, libraryToCsv } from './store.js';
 import { normalizePlan, PlanError } from '../shared/plan.js';
 import {
@@ -28,10 +31,15 @@ import {
   launchGame,
   scanAllGames,
 } from './games.js';
+import { DownloadManager } from './downloads.js';
+import { TelemetryBridge } from './telemetry.js';
+import { detectCommunityFolders } from './community.js';
+import { installTelemetryPlugin } from './plugins.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 const isWindows = process.platform === 'win32';
+const execFileAsync = promisify(execFile);
 
 const dataDirArg = process.argv.find((arg) => arg.startsWith('--data-dir='));
 if (dataDirArg) {
@@ -45,6 +53,9 @@ let store = null;
 let logger = () => {};
 let previewCache = new Map();
 let previewTimer = null;
+let telemetry = null;
+let telemetrySession = null;
+let downloads = null;
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -202,6 +213,41 @@ function createWindow() {
       mainWindow.loadFile(indexPath);
     }
   }
+}
+
+function sendEvent(channel, payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, payload);
+  }
+}
+
+function communitySettings() {
+  return store?.getLibrary()?.settings?.communityFolders || {};
+}
+
+async function extractZip(zipPath, targetDir) {
+  fs.mkdirSync(targetDir, { recursive: true });
+  if (process.platform === 'win32') {
+    // Keep the built-in expander for ordinary ZIPs. 7za is used for .7z.
+    if (zipPath.toLowerCase().endsWith('.zip')) {
+      const escapedZip = zipPath.replace(/'/g, "''");
+      const escapedTarget = targetDir.replace(/'/g, "''");
+      await execFileAsync('powershell.exe', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-Command',
+        `Expand-Archive -LiteralPath '${escapedZip}' -DestinationPath '${escapedTarget}' -Force`,
+      ], { windowsHide: true, timeout: 180000 });
+      return;
+    }
+  }
+  let sevenPath = sevenZip.path7za;
+  if (app.isPackaged && sevenPath.includes('app.asar')) {
+    sevenPath = sevenPath.replace('app.asar', 'app.asar.unpacked');
+  }
+  await execFileAsync(sevenPath, ['x', zipPath, `-o${targetDir}`, '-y'], { timeout: 180000 });
 }
 
 function initIpc() {
@@ -489,6 +535,140 @@ function initIpc() {
     return launchGame(selected);
   });
 
+  handle('community:detect', async () => {
+    const known = store.getLibrary().settings?.knownGames || [];
+    const detected = await detectCommunityFolders(known, process.platform);
+    return { ...detected, saved: communitySettings() };
+  });
+
+  handle('community:choose', async (_event, { family } = {}) => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: family === 'xplane' ? '选择 X-Plane 插件文件夹 / Choose plugins folder' : '选择 MSFS Community 文件夹',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (result.canceled || !result.filePaths?.[0]) return { canceled: true };
+    const chosen = path.resolve(result.filePaths[0]);
+    const folders = { ...communitySettings(), [family || 'msfs']: chosen };
+    store.updateSettings({ communityFolders: folders });
+    return { canceled: false, path: chosen, library: store.getLibrary() };
+  });
+
+  handle('community:set', async (_event, { family, folder } = {}) => {
+    const chosen = path.resolve(String(folder || ''));
+    if (!fs.existsSync(chosen)) throw new StoreError('社区文件夹不存在', 'community-missing');
+    const folders = { ...communitySettings(), [family || 'msfs']: chosen };
+    store.updateSettings({ communityFolders: folders });
+    return { path: chosen, library: store.getLibrary() };
+  });
+
+  handle('telemetry:start', async (_event, payload = {}) => {
+    const known = store.getLibrary().settings?.knownGames || [];
+    const game = payload.game
+      || store.getLibrary().settings?.game
+      || known.find((item) => item.family === payload.family)
+      || known[0]
+      || null;
+    const family = payload.family || game?.family || '';
+    if (!family) throw new GameError('请先选择游戏 / Choose a game first.', 'game-not-selected');
+    if (!telemetry) {
+      telemetry = new TelemetryBridge({
+        onSample: (sample) => sendEvent('telemetry:update', sample),
+        onSession: (event) => sendEvent('telemetry:session', event),
+        logger,
+      });
+    }
+    await telemetry.start();
+    const installed = installTelemetryPlugin({
+      family,
+      games: known,
+      customFolder: communitySettings()[family] || '',
+      projectRoot,
+      platform: process.platform,
+    });
+    if (installed.telemetryFile) telemetry.watchFile(installed.telemetryFile, family);
+    telemetrySession = {
+      flightId: String(payload.flightId || ''),
+      family,
+      game,
+      startedAt: new Date().toISOString(),
+    };
+    return {
+      ...installed,
+      port: telemetry.port,
+      bridgeUrl: `http://127.0.0.1:${telemetry.port}`,
+      session: telemetrySession,
+    };
+  });
+
+  handle('telemetry:stop', async () => {
+    telemetry?.stopFileWatch();
+    const session = telemetrySession;
+    telemetrySession = null;
+    return { stopped: true, session };
+  });
+
+  handle('telemetry:save', async (_event, { flightId, samples } = {}) => {
+    const id = sanitizeFileName(String(flightId || ''), 'flight');
+    const dir = path.join(store.userDataPath, 'telemetry');
+    ensureDir(dir);
+    const file = path.join(dir, `${id}.json`);
+    fs.writeFileSync(file, JSON.stringify({ flightId: id, samples: Array.isArray(samples) ? samples : [] }), 'utf8');
+    return { path: file, count: Array.isArray(samples) ? samples.length : 0 };
+  });
+
+  handle('downloads:start', async (_event, payload = {}) => {
+    if (!downloads) throw new StoreError('下载服务尚未启动', 'downloads-unavailable');
+    const settings = store.getLibrary().settings || {};
+    const targetDir = payload.targetDir || settings.downloadPath || app.getPath('downloads');
+    const task = await downloads.start({
+      url: payload.url,
+      filename: payload.filename,
+      family: payload.family,
+      targetDir,
+      connections: payload.connections,
+    });
+    return { task, tasks: downloads.list() };
+  });
+
+  handle('downloads:list', async () => ({ tasks: downloads?.list() || [] }));
+
+  handle('downloads:cancel', async (_event, { id } = {}) => ({ canceled: downloads?.cancel(id) || false }));
+
+  handle('downloads:chooseFolder', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择下载文件夹 / Choose download folder',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (result.canceled || !result.filePaths?.[0]) return { canceled: true };
+    const chosen = path.resolve(result.filePaths[0]);
+    store.updateSettings({ downloadPath: chosen });
+    return { canceled: false, path: chosen, library: store.getLibrary() };
+  });
+
+  handle('downloads:openFolder', async (_event, { folder } = {}) => {
+    const chosen = folder || store.getLibrary().settings?.downloadPath || app.getPath('downloads');
+    const error = await shell.openPath(chosen);
+    return { opened: !error, error };
+  });
+
+  handle('downloads:install', async (_event, { filePath, family } = {}) => {
+    if (!filePath || !fs.existsSync(filePath)) throw new StoreError('下载文件不存在', 'download-missing');
+    const ext = path.extname(filePath).toLowerCase();
+    if (['.exe', '.msi', '.dmg', '.pkg'].includes(ext)) {
+      const error = await shell.openPath(filePath);
+      return { mode: 'installer', opened: !error, error, filePath };
+    }
+    if (ext !== '.zip' && ext !== '.7z') {
+      return { mode: 'file', opened: false, filePath, message: '该文件不是 ZIP / 7Z，已保留下载文件。' };
+    }
+    const target = communitySettings()[family || 'msfs'];
+    if (!target) {
+      return { mode: 'zip', needsCommunity: true, family, filePath };
+    }
+    await extractZip(filePath, target);
+    return { mode: 'zip', installed: true, target, filePath };
+  });
+
   handle('app:info', async () => ({
     version: app.getVersion(),
     electron: process.versions.electron,
@@ -496,6 +676,8 @@ function initIpc() {
     node: process.versions.node,
     platform: process.platform,
     dataPath: store.userDataPath,
+    telemetryPort: telemetry?.port || 42831,
+    downloadPath: store.getLibrary().settings?.downloadPath || app.getPath('downloads'),
   }));
 }
 
@@ -513,6 +695,18 @@ app.whenReady().then(() => {
   logger = createLogger(userDataPath);
   logger(`[app] starting SkyLog ${app.getVersion()} on ${process.platform}`);
   store = new LibraryStore(userDataPath, { logger });
+  downloads = new DownloadManager({
+    logger,
+    onUpdate: (task) => sendEvent('downloads:update', task),
+  });
+  telemetry = new TelemetryBridge({
+    logger,
+    onSample: (sample) => sendEvent('telemetry:update', sample),
+    onSession: (event) => sendEvent('telemetry:session', event),
+  });
+  telemetry.start().then((result) => {
+    if (!result.ok) logger(`[telemetry] bridge unavailable: ${result.error}`);
+  });
   if (process.platform === 'darwin') {
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       {

@@ -1,6 +1,32 @@
 # Changelog
 
-> English summary: SkyLog 1.1.1 adds a flight-deck home page, a separate Details page, clearer X-Plane/MSFS launch cards, first-launch full-drive scanning, a Toolbox with airline themes/redemption codes/backgrounds, circular menu transitions, all-route highlighting, and a macOS Steam launch fix for X-Plane.
+> English summary: SkyLog 1.2.0 adds real aircraft photographs and type/registration/age cards, a post-import flown prompt, a local X-Plane/MSFS telemetry bridge, live map tracking with speed/altitude/heading charts, a Community-aware download centre, multi-threaded URL downloads with a floating progress button, a first-run appreciation dialog and QQ group, and a richer route transition.
+
+## [1.2.0] - 2026-11-04
+
+### Added
+
+- 首页航空小课堂改用 6 张真实航空照片，增加机型、示例注册号、机龄、座位、航程、巡航速度与动力信息；照片许可与 ID 记录在 `docs/aviation-photo-credits.md`。
+- 导入 SimBrief 后询问是否已飞；未飞可选择读取飞行数据。
+- X-Plane 11/12 FlyWithLua 遥测脚本与 MSFS 2020/2024 Community HTML 面板。
+- 本机遥测桥 `127.0.0.1:42831`；地图实时飞机、状态气泡、蓝色轨迹，以及速度 / 高度 / 航向图表。
+- 自动检测 MSFS Community 与 X-Plane plugins；找不到时提示选择，设置页可修改。
+- 菜单栏「下载」：FlyByWire 直链、FlightSim.to、飞行宝、X-Plane 插件资源；MSFS 2020/2024 与 X-Plane 11/12 筛选。
+- 4 路 Range 多线程 URL 下载、文件名识别、速度 / 进度 / 剩余时间、右下角圆形下载按钮与下载中心。
+- 工具箱 URL 下载与持久保存路径。
+- 首次启动赞赏码、QQ 群 `967512206`、标题栏「我已赞赏」与复制群号。
+- 圆形转场加入轨迹光带与蒙版淡入淡出，提高不透明度。
+
+### Changed
+
+- 下载层改用 Electron `net`，兼容系统代理与证书链。
+- 版本升级至 1.2.0；README、插件说明、发布说明与更新日志同步。
+
+### Verification
+
+- 50 项单元测试通过。
+- Windows 开发版验证了首启赞赏、下载中心、URL 下载、FAB、文件名识别、7Z 解压、社区插件安装、本机遥测桥、实时地图、状态气泡、三张图表与结束保存。
+- 未在真实 X-Plane / MSFS 内完整验证插件面板加载；macOS 包未原生启动。
 
 ## [1.1.1] - 2026-11-01
 

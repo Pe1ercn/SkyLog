@@ -2,13 +2,13 @@
 
 > 把每一次起飞，都留在地图上。
 
-SkyLog 航迹是一款面向微软模拟飞行与 X-Plane 玩家的桌面飞行计划与飞行日志工具。它从 SimBrief 读取 OFP，把航班号、起降机场、巡航高度、航路、机型和性能数据整理成可回看的记录，并在内置世界地图上画出完整航迹。v1.1.1 提供 Windows 安装包与 macOS 应用包，并把首页升级为游戏启动 + 航空知识飞行甲板。
+SkyLog 航迹是一款面向微软模拟飞行与 X-Plane 玩家的桌面飞行计划与飞行日志工具。它从 SimBrief 读取 OFP，把航班号、起降机场、巡航高度、航路、机型和性能数据整理成可回看的记录，并在内置世界地图上画出完整航迹。v1.2.0 提供 Windows 安装包与 macOS 应用包，并加入真实飞机照片、社区插件安装、飞行数据遥测、下载中心和赞赏入口。
 
 模拟飞行玩家通常在 SimBrief 生成计划，但计划容易散落在网页、PDF 和截图里；同一次游戏里的多个起降也不容易归档。SkyLog 想解决三件事：**计划读得进来、航线看得清楚、飞行记得下来。**
 
 ## English overview
 
-SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulator and X-Plane. It reads your latest SimBrief OFP, draws the route and waypoints on an offline world map, and keeps every leg grouped into a game session. Version 1.1.1 turns the home page into a flight deck with game launching and aviation cards, adds a Toolbox with airline themes and backgrounds, first-launch full-drive game scanning, all-route highlighting, and a macOS Steam launch fix for X-Plane. The original dashboard is available under Details.
+SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulator and X-Plane. It reads your latest SimBrief OFP, draws the route and waypoints on an offline world map, and keeps every leg grouped into a game session. Version 1.2.0 adds real aircraft photographs, a Community-aware add-on download centre, an installable flight-data bridge for X-Plane/MSFS, URL downloads with a floating progress button, and a first-run appreciation dialog. The original dashboard is available under Details.
 
 ## 界面
 
@@ -63,6 +63,42 @@ SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulat
 - 支持重量、距离、高度、时间显示单位和地图标签的偏好设置。
 - 日志损坏时会自动尝试从备份恢复。
 
+### 真实飞机照片与机型档案（v1.2.0）
+
+- 首页「航空小课堂」的 6 张机型图改为真实航空摄影，不再使用插画；每张图附机型、示例注册号、机龄、座位、航程、巡航速度与动力信息。
+- 照片来自 Unsplash 免费图库，具体图片 ID 与许可记录见 [docs/aviation-photo-credits.md](docs/aviation-photo-credits.md)。照片是机型示意图，不是注册号对应的实拍；注册号与机龄为 2026 年的示例数据。
+- 机型卡片会明确标注“真实航空照片为示意图”，避免把示例注册号误认为该照片中的飞机。
+
+### 飞行数据遥测（v1.2.0）
+
+- 导入 SimBrief 计划后询问「这段航程已经飞了吗？」：已飞可直接标记；未飞则询问是否读取飞行数据。
+- 在「下载」或地图航段面板中安装 SkyLog 遥测插件：
+  - **X-Plane 11/12**：把 FlyWithLua 脚本复制到 `<X-Plane>/Resources/plugins/FlyWithLua/Scripts/`；需要先安装 FlyWithLua。
+  - **MSFS 2020/2024**：把 `skylog-telemetry` HTML/JS 面板复制到 Community 文件夹；进入游戏后从工具栏打开面板。
+- 数据桥接只监听本机 `127.0.0.1:42831`，读取纬度、经度、高度、空速、航向、垂直速度和地面状态；不会上传到互联网。
+- 飞行中地图显示移动飞机、状态气泡（滑行 / 起飞 / 爬升 / 巡航 / 下降 / 降落）和蓝色轨迹；右下角显示速度、高度、航向三张折线图。
+- 结束记录后把采样点保存到本机 `telemetry/<flightId>.json`，地图保留轨迹与图表，可滚动回看。
+- 若未找到 Community 文件夹，安装时会要求选择；设置页也可以修改 MSFS Community 与 X-Plane plugins 路径。
+
+### 下载中心（v1.2.0）
+
+- 菜单栏新增「下载」：聚合 FlyByWire 直链、FlightSim.to、飞行宝与 X-Plane 插件资源，支持 MSFS 2020/2024、X-Plane 11/12 分类筛选。
+- FlyByWire A32NX / A380X 使用官方 GitHub Release 直链；下载完成后可一键解压并安装到 Community。
+- FlightSim.to 和飞行宝需要登录，应用会打开对应来源页，不绕过登录或抓取受保护内容。
+- 下载任务支持 4 路 Range 多线程、断点临时文件合并、速度 / 剩余时间 / 进度显示；所有进行中的任务都会出现在右下角的圆形下载按钮里。
+- 支持安装程序（`.exe`、`.msi`、`.dmg`、`.pkg`）直接打开；ZIP / 7Z 资源安装到已选择的社区目录。
+- 工具箱新增 URL 下载：输入下载地址，自动识别文件名，保存目标路径会持久化。
+
+### 首启赞赏与交流（v1.2.0）
+
+- 第一次启动显示「感谢赞赏」弹窗和赞赏码；点击「我已赞赏」后显示 QQ 群 `967512206` 与「+QQ群获取更多」，群号可一键复制。
+- 标题栏常驻「我已赞赏」按钮，可随时重新打开赞赏 / 群信息。
+- 赞赏完全自愿，不影响任何功能；已确认状态保存在本机设置中。
+
+### 转场与视觉（v1.2.0）
+
+- 圆形扩散转场加入斜向轨迹光带与圆形蒙版淡入淡出，整体不透明度提高，切换更连贯。
+
 ### 游戏与启动（v1.1.1）
 
 - 首页左侧按 X-Plane / Microsoft Flight Simulator 两个系列展示游戏，右侧提供机型参数、航空公司图鉴和航空小知识。
@@ -98,8 +134,10 @@ SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulat
 1. 安装并打开 SkyLog 航迹。
 2. 在「设置」里填入 SimBrief Pilot ID，或直接点「导入 SimBrief」。
 3. 确认计划，选择它属于新的游戏还是已有游戏。
-4. 导入后在地图上查看航路，点击机场或航线查看详情。
-5. 飞行结束后，在航段日志里标记已飞并写下备注。
+4. 导入后 SkyLog 会询问这段航程是否已飞；未飞可选择读取飞行数据，并按提示安装社区遥测插件。
+5. 飞行中在地图查看实时轨迹与速度 / 高度 / 航向图表；结束后点「结束并保存飞行数据」。
+6. 也可以从「下载」获取 FlyByWire 机模，或从「工具箱 → URL 下载」下载任意直链文件。
+7. 飞行结束后，在航段日志里标记已飞并写下备注。
 
 ## 设计
 
@@ -112,9 +150,10 @@ SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulat
 - **桌面框架**：Electron 43（Windows x64；macOS x64 / arm64）。
 - **界面**：原生 JavaScript + CSS，Vite 构建；Leaflet 负责地图交互。
 - **地图数据**：Natural Earth 1:50m 国家边界与轮廓，本地打包；中国台湾、香港、澳门并入中国，南海诸岛与九段线使用独立本地图层。
-- **主进程**：负责 SimBrief 请求、数据归档、文件读写和本地日志存储。
+- **主进程**：负责 SimBrief 请求、数据归档、文件读写、本地日志存储、下载队列和本机遥测桥接（`127.0.0.1:42831`）。
+- **下载层**：Electron `net` 请求，支持 4 路 Range 多线程、ZIP / 7Z 解压和社区目录安装。
 - **数据层**：纯 JavaScript 计划归一化模块，将 SimBrief 原始 JSON 转换成稳定的应用数据模型。
-- **测试**：Node.js 单元测试覆盖计划解析、地理计算、会话分组、备份恢复、CSV 与异常恢复。
+- **测试**：Node.js 单元测试覆盖计划解析、地理计算、会话分组、备份恢复、CSV、游戏路径、遥测状态机与社区路径推导。
 
 ## 兼容性与安装
 
@@ -125,12 +164,13 @@ SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulat
 
 ## 测试状态
 
-- 44 项单元测试全部通过，覆盖全盘游戏搜索、Steam App ID、主题/兑换码、计划解析、地理计算、游戏路径分类、SimBrief 草稿 URL、会话分组、地图数据、备份恢复、CSV 与异常恢复。
-- 已完成 Windows 打包、静默安装、启动、英文切换、主题解锁、地图高亮与卸载测试。
-- macOS 包已在 Windows 上完成 bundle 结构、版本、图标与符号链接校验；因当前环境不是 macOS，未做原生启动测试。
+- 50 项单元测试全部通过，覆盖全盘游戏搜索、Steam App ID、主题/兑换码、计划解析、地理计算、游戏路径分类、SimBrief 草稿 URL、会话分组、地图数据、备份恢复、CSV、遥测状态机与社区路径推导。
+- 已完成 Windows 打包、静默安装、启动、英文切换、主题解锁、地图高亮与卸载测试；v1.2.0 另外验证了下载队列、FAB、7Z 解压、遥测桥接与实时图表。
+- macOS 包已在 Windows 上完成 bundle 结构、版本、图标与符号链接校验；因当前环境不是 macOS，未做原生启动测试。遥测与下载仍依赖实际游戏环境，建议先在测试计划上验证。
 
 ## 更新日志
 
+- [SkyLog 1.2.0 更新内容 / What's New](docs/releases/v1.2.0.md)
 - [SkyLog 1.1.1 更新内容 / What's New](docs/releases/v1.1.1.md)
 - [SkyLog 1.1.0 更新内容 / What's New](docs/releases/v1.1.0.md)
 - [完整变更记录](CHANGELOG.md)

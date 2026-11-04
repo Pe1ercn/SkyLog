@@ -2,12 +2,12 @@ import { icon } from '../lib/icons.js';
 import { esc } from '../lib/format.js';
 import { getLanguage, t } from '../lib/i18n.js';
 import { AIRCRAFT, AIRLINES, FACTS } from '../data/aviation.js';
-import b738 from '../assets/aviation/b738.svg';
-import a320 from '../assets/aviation/a320.svg';
-import b77w from '../assets/aviation/b77w.svg';
-import a359 from '../assets/aviation/a359.svg';
-import c919 from '../assets/aviation/c919.svg';
-import a388 from '../assets/aviation/a388.svg';
+import b738 from '../assets/aviation/photos/b738.jpg';
+import a320 from '../assets/aviation/photos/a320.jpg';
+import b77w from '../assets/aviation/photos/b77w.jpg';
+import a359 from '../assets/aviation/photos/a359.jpg';
+import c919 from '../assets/aviation/photos/c919.jpg';
+import a388 from '../assets/aviation/photos/a388.jpg';
 import airchina from '../assets/aviation/airchina.svg';
 import csair from '../assets/aviation/csair.svg';
 import ceair from '../assets/aviation/ceair.svg';
@@ -198,11 +198,16 @@ export class LaunchPage {
       <div class="knowledge-image-wrap">
         <img src="${IMAGES[item.image]}" alt="${esc(name)}" />
         <span class="knowledge-image-code">${esc(item.code)}</span>
-        <span class="knowledge-image-caption">${t('原创插画 · 非官方照片', 'Original illustration · not a photo')}</span>
+        <span class="knowledge-image-caption">${t('真实照片 · Unsplash 免费图库', 'Real photo · Unsplash free library')}</span>
       </div>
       <div class="knowledge-feature-head">
         <div><span class="knowledge-kicker">${esc(manufacturer)} · ${esc(category)}</span><h3>${esc(name)}</h3></div>
         <span class="knowledge-index">${String(this.aircraftIndex + 1).padStart(2, '0')} / ${String(AIRCRAFT.length).padStart(2, '0')}</span>
+      </div>
+      <div class="knowledge-aircraft-id">
+        <span><b>${esc(item.type)}</b></span>
+        <span>${t('注册号', 'Registration')} <b>${esc(item.registration)}</b></span>
+        <span>${t('机龄', 'Age')} <b>${esc(lang === 'en' ? item.ageEn : item.age)}</b></span>
       </div>
       <div class="knowledge-specs">
         <div><span>${t('典型座位', 'Typical seats')}</span><strong>${esc(item.seats)}</strong></div>
@@ -210,7 +215,7 @@ export class LaunchPage {
         <div><span>${t('巡航速度', 'Cruise')}</span><strong>${esc(item.cruise)}</strong></div>
         <div><span>${t('动力', 'Power')}</span><strong>${esc(item.engines)}</strong></div>
       </div>
-      <p class="knowledge-note">${esc(note)}</p>
+      <p class="knowledge-note">${esc(note)} <span class="knowledge-photo-note">${esc(item.photoNote)}</span></p>
       <div class="knowledge-cycle">
         <button class="text-btn" type="button" data-knowledge-action="aircraft-prev">${icon('arrowLeft', 14)} ${t('上一架', 'Previous')}</button>
         <div class="knowledge-dots">${AIRCRAFT.map((_, index) => `<i class="${index === this.aircraftIndex ? 'is-active' : ''}"></i>`).join('')}</div>

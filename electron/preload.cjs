@@ -32,4 +32,26 @@ contextBridge.exposeInMainWorld('skylog', {
   pickGame: () => invoke('games:pick'),
   launchGame: (game) => invoke('games:launch', { game }),
   importBackground: () => invoke('app:importBackground'),
+  getCommunityFolders: () => invoke('community:detect'),
+  chooseCommunityFolder: (family) => invoke('community:choose', { family }),
+  setCommunityFolder: (family, folder) => invoke('community:set', { family, folder }),
+  startTelemetry: (payload) => invoke('telemetry:start', payload),
+  stopTelemetry: () => invoke('telemetry:stop'),
+  saveTelemetry: (payload) => invoke('telemetry:save', payload),
+  startDownload: (payload) => invoke('downloads:start', payload),
+  listDownloads: () => invoke('downloads:list'),
+  cancelDownload: (id) => invoke('downloads:cancel', { id }),
+  chooseDownloadFolder: () => invoke('downloads:chooseFolder'),
+  openDownloadFolder: (folder) => invoke('downloads:openFolder', { folder }),
+  installDownload: (payload) => invoke('downloads:install', payload),
+  onTelemetry: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('telemetry:update', listener);
+    return () => ipcRenderer.removeListener('telemetry:update', listener);
+  },
+  onDownloadUpdate: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('downloads:update', listener);
+    return () => ipcRenderer.removeListener('downloads:update', listener);
+  },
 });

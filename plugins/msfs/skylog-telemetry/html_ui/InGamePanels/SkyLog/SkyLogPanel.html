@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SkyLog Telemetry</title>
+<style>
+  html,body{margin:0;height:100%;background:#0d1a2b;color:#eaf4ff;font-family:"Segoe UI",Arial,sans-serif}
+  .wrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center}
+  .dot{width:10px;height:10px;border-radius:50%;background:#38c5a0;box-shadow:0 0 0 5px rgba(56,197,160,.15)}
+  h1{font-size:18px;margin:0;letter-spacing:.02em}
+  p{font-size:12px;color:#8fa9c4;margin:0;max-width:360px;line-height:1.6}
+  .stat{font-family:Consolas,monospace;font-size:11px;color:#9ad8ff}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <span class="dot"></span>
+    <h1>SkyLog Telemetry Bridge</h1>
+    <p>Keep this panel open while flying. SkyLog receives latitude, altitude, speed, heading and vertical speed automatically.</p>
+    <div class="stat" id="status">connecting…</div>
+  </div>
+<script>
+const ENDPOINT = 'http://127.0.0.1:42831/telemetry';
+const status = document.getElementById('status');
+function num(name, unit) {
+  try { return Number(SimVar.GetSimVarValue(name, unit)); } catch { return 0; }
+}
+async function tick() {
+  try {
+    const payload = {
+      source: 'msfs',
+      lat: num('PLANE LATITUDE', 'degrees'),
+      lon: num('PLANE LONGITUDE', 'degrees'),
+      altitudeFt: num('PLANE ALTITUDE', 'feet'),
+      speedKt: num('AIRSPEED INDICATED', 'knots'),
+      headingDeg: num('PLANE HEADING DEGREES TRUE', 'degrees'),
+      verticalSpeedFpm: num('VERTICAL SPEED', 'feet per minute'),
+      onGround: num('SIM ON GROUND', 'bool') > 0.5,
+      timestamp: Date.now()
+    };
+    const response = await fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    status.textContent = response.ok ? `sending · ${payload.speedKt.toFixed(0)} kt · ${payload.altitudeFt.toFixed(0)} ft` : 'SkyLog not reachable';
+  } catch {
+    status.textContent = 'SkyLog not running';
+  }
+  setTimeout(tick, 500);
+}
+tick();
+</script>
+</body>
+</html>

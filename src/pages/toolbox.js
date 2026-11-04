@@ -93,6 +93,26 @@ export class ToolboxPage {
             <p class="field-help">${t('支持 PNG、JPG、WEBP、GIF，最大 8 MB。图片只保存在本机。', 'PNG, JPG, WEBP and GIF up to 8 MB. Images stay on this computer.')}</p>
           </section>
 
+          <section class="panel toolbox-download">
+            <div class="settings-card-head">
+              <span class="settings-icon">${icon('download', 20)}</span>
+              <div>
+                <h2>${t('URL 下载', 'URL download')}</h2>
+                <p>${t('粘贴下载地址，自动识别文件名并多线程下载到保存路径。', 'Paste a URL; SkyLog detects the filename and downloads with multiple connections.')}</p>
+              </div>
+            </div>
+            <div class="field-row">
+              <label class="field-label" for="toolbox-download-url">${t('下载地址', 'Download URL')}</label>
+              <input id="toolbox-download-url" class="field-input" type="url" placeholder="https://…" autocomplete="off" />
+            </div>
+            <div class="data-path toolbox-download-path">
+              <span>${icon('folder', 15)} ${t('保存到', 'Save to')}</span>
+              <code title="${esc(settings.downloadPath || this.app.appInfo?.downloadPath || '')}">${esc(settings.downloadPath || this.app.appInfo?.downloadPath || t('未选择', 'Not selected'))}</code>
+              <button class="text-btn" type="button" data-toolbox-action="choose-download">${t('更改', 'Change')} ${icon('external', 13)}</button>
+            </div>
+            <button class="btn btn-primary btn-wide" type="button" data-toolbox-action="start-download">${icon('download', 15)} ${t('开始多线程下载', 'Start multi-thread download')}</button>
+          </section>
+
           <section class="panel toolbox-about">
             <div class="settings-card-head">
               <span class="settings-icon">${icon('shield', 20)}</span>
@@ -178,6 +198,23 @@ export class ToolboxPage {
       } else if (action === 'clear-bg') {
         await this.app.updateSettings({ backgroundImage: '' });
         toast(t('已恢复主题背景', 'Theme backdrop restored'), { type: 'success' });
+      } else if (action === 'choose-download') {
+        const result = await this.app.chooseDownloadFolder();
+        if (!result.canceled) this.update();
+      } else if (action === 'start-download') {
+        const input = this.root.querySelector('#toolbox-download-url');
+        const url = String(input?.value || '').trim();
+        if (!/^https?:\/\//i.test(url)) {
+          toast(t('请输入有效的 http(s) 下载地址', 'Enter a valid http(s) download URL'), { type: 'error' });
+          input?.focus();
+          return;
+        }
+        try {
+          await this.app.startDownload({ url });
+          toast(t('已加入下载队列', 'Added to the download queue'), { type: 'success' });
+        } catch (error) {
+          toast(errorMessage(error), { type: 'error' });
+        }
       }
     });
 

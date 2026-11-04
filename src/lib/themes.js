@@ -17,6 +17,7 @@ function nav(icons) {
     details: 'file',
     map: 'map',
     log: 'book',
+    downloads: 'download',
     toolbox: 'toolbox',
     settings: 'sliders',
     ...icons,

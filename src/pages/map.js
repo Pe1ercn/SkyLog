@@ -33,6 +33,8 @@ export class MapPage {
     this.controlsEl = null;
     this.waypointMarkers = [];
     this.initialFitDone = false;
+    this.liveFitted = false;
+    this.lastLiveFlightId = null;
     this.animFrame = null;
     this.currentZoom = 2;
     this.bound = false;
@@ -61,11 +63,13 @@ export class MapPage {
           <button class="map-control" type="button" data-map-action="fit" aria-label="适应航路">${icon('crosshair', 18)}</button>
         </div>
         <div class="map-legend" id="map-legend"></div>
+        <div class="live-telemetry" id="live-telemetry"></div>
       </div>
     </div>`;
     this.stageEl = this.root.querySelector('#map-stage');
     this.panelEl = this.root.querySelector('#map-panel');
     this.canvasEl = this.root.querySelector('#map-canvas');
+    this.liveEl = this.root.querySelector('#live-telemetry');
     this.bindStatic();
     this.renderPanel();
   }
@@ -88,6 +92,9 @@ export class MapPage {
     });
     this.panelEl?.addEventListener('click', (event) => this.handlePanelClick(event));
     this.panelEl?.addEventListener('change', (event) => this.handlePanelChange(event));
+    this.root.addEventListener('click', (event) => {
+      if (event.target.closest('[data-live-action="stop"]')) this.app.stopTracking();
+    });
     window.addEventListener('resize', () => this.map?.invalidateSize());
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => this.map?.invalidateSize());
@@ -103,6 +110,8 @@ export class MapPage {
       this.updateCountryLabels();
       this.updateSeaLabels();
       this.renderPanel();
+      this.renderLiveTelemetry();
+      this.renderLiveLayer();
       this.renderLayers(this.app.activeFlight(), { animate: !this.initialFitDone });
       if (!this.initialFitDone) {
         this.initialFitDone = true;
@@ -113,8 +122,10 @@ export class MapPage {
 
   update(options = {}) {
     this.renderPanel();
+    this.renderLiveTelemetry();
     if (this.map) {
       this.renderLayers(this.app.activeFlight(), { animate: !options.silent });
+      this.renderLiveLayer();
       this.renderLegend(this.app.activeFlight());
     }
   }
@@ -224,6 +235,7 @@ export class MapPage {
     this.countryLabelRank = null;
 
     this.layerGroup = L.layerGroup().addTo(this.map);
+    this.liveLayer = L.layerGroup().addTo(this.map);
     this.map.on('zoomend', () => {
       this.currentZoom = this.map.getZoom();
       this.stageEl.classList.toggle('is-low-zoom', this.currentZoom < 4);
@@ -315,6 +327,134 @@ export class MapPage {
       ];
     }
     return [];
+  }
+
+  phaseOf(sample) {
+    if (!sample) return 'unknown';
+    const speed = Number(sample.speedKt) || 0;
+    const altitude = Number(sample.altitudeFt) || 0;
+    const vs = Number(sample.verticalSpeedFpm) || 0;
+    if (sample.onGround) return speed < 25 ? 'taxi' : 'takeoff';
+    if (altitude < 3000 && vs < -250 && speed < 180) return 'landing';
+    if (vs > 350) return 'climb';
+    if (vs < -350) return 'descent';
+    return 'cruise';
+  }
+
+  phaseLabel(phase) {
+    const labels = {
+      taxi: ['滑行', 'Taxi'],
+      takeoff: ['起飞', 'Takeoff'],
+      climb: ['爬升', 'Climb'],
+      cruise: ['巡航', 'Cruise'],
+      descent: ['下降', 'Descent'],
+      landing: ['降落', 'Landing'],
+    };
+    const pair = labels[phase] || ['等待数据', 'Waiting'];
+    return t(pair[0], pair[1]);
+  }
+
+  sparkline(samples, key, color, label, unit, digits = 0) {
+    const values = samples.map((sample) => Number(sample[key]) || 0);
+    if (!values.length) return '';
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const span = max - min || 1;
+    const width = 220;
+    const height = 48;
+    const points = values.map((value, index) => {
+      const x = values.length === 1 ? width : (index / (values.length - 1)) * width;
+      const y = height - ((value - min) / span) * (height - 8) - 4;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const last = values.at(-1);
+    return `<div class="live-chart">
+      <div class="live-chart-head"><span>${esc(label)}</span><strong>${last.toFixed(digits)} <em>${esc(unit)}</em></strong></div>
+      <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 ${height - 4}H${width}" stroke="rgba(30,60,95,.1)" stroke-dasharray="3 5"/>
+        <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>`;
+  }
+
+  renderLiveTelemetry() {
+    if (!this.liveEl) return;
+    const live = this.app.liveTelemetry;
+    if (!live || (!live.active && !live.samples?.length)) {
+      this.liveEl.innerHTML = '';
+      this.liveEl.hidden = true;
+      return;
+    }
+    this.liveEl.hidden = false;
+    const samples = live.samples || [];
+    const last = live.lastSample || samples.at(-1);
+    const phase = this.phaseOf(last);
+    const visible = samples.slice(-180);
+    const speed = Number(last?.speedKt) || 0;
+    const altitude = Number(last?.altitudeFt) || 0;
+    const heading = Number(last?.headingDeg) || 0;
+    this.liveEl.innerHTML = `<div class="live-card">
+      <div class="live-card-head">
+        <span class="live-pulse ${live.active ? 'is-live' : ''}"></span>
+        <span class="live-kicker">${live.active ? t('实时飞行数据', 'LIVE FLIGHT DATA') : t('已结束 · 飞行数据', 'FLIGHT DATA · RECORDED')}</span>
+        <span class="live-phase">${this.phaseLabel(phase)}</span>
+        ${live.active ? `<button class="text-btn live-stop" type="button" data-live-action="stop">${icon('stop', 13)} ${t('结束记录', 'End')}</button>` : ''}
+      </div>
+      ${last ? `<div class="live-stats">
+        <div><span>${t('速度', 'SPEED')}</span><strong>${Math.round(speed)}<em>kt</em></strong></div>
+        <div><span>${t('高度', 'ALT')}</span><strong>${Math.round(altitude).toLocaleString('en-US')}<em>ft</em></strong></div>
+        <div><span>${t('航向', 'HDG')}</span><strong>${Math.round(heading).toString().padStart(3, '0')}<em>°</em></strong></div>
+      </div>
+      <div class="live-charts">
+        ${this.sparkline(visible, 'speedKt', 'var(--primary)', t('速度', 'Speed'), 'kt')}
+        ${this.sparkline(visible, 'altitudeFt', 'var(--theme-accent, #72a6ff)', t('高度', 'Altitude'), 'ft')}
+        ${this.sparkline(visible, 'headingDeg', '#e2a13a', t('航向', 'Heading'), '°')}
+      </div>` : `<div class="live-waiting">${live.active ? t('等待游戏内遥测数据…', 'Waiting for in-game telemetry…') : t('没有采样点', 'No samples')}</div>`}
+    </div>`;
+  }
+
+  renderLiveLayer() {
+    if (!this.map || !this.liveLayer) return;
+    const live = this.app.liveTelemetry;
+    const samples = (live?.samples || []).filter((sample) => Number.isFinite(sample.lat) && Number.isFinite(sample.lon));
+    this.liveLayer.clearLayers();
+    if (!samples.length) return;
+    if (live.flightId !== this.lastLiveFlightId) {
+      this.lastLiveFlightId = live.flightId;
+      this.liveFitted = false;
+    }
+    const points = samples.map((sample) => [sample.lat, sample.lon]);
+    L.polyline(points, {
+      color: '#20a7ff',
+      weight: 3,
+      opacity: 0.92,
+      lineCap: 'round',
+      lineJoin: 'round',
+      interactive: false,
+      className: 'live-route-line',
+    }).addTo(this.liveLayer);
+    if (!this.liveFitted && points.length > 1 && live.active) {
+      this.map.fitBounds(L.latLngBounds(points).pad(0.45), { animate: true, duration: 0.8 });
+      this.liveFitted = true;
+    }
+    const last = samples.at(-1);
+    const phase = this.phaseOf(last);
+    const marker = L.marker([last.lat, last.lon], {
+      icon: L.divIcon({
+        className: 'live-plane-marker',
+        html: `<span class="live-plane-icon" style="--heading:${Number(last.headingDeg) || 0}deg">${icon('navigation', 20)}</span><span class="live-plane-bubble">${esc(this.phaseLabel(phase))}</span>`,
+        iconSize: [100, 64],
+        iconAnchor: [50, 32],
+      }),
+      interactive: false,
+      zIndexOffset: 2000,
+    }).addTo(this.liveLayer);
+    this.lastLiveMarker = marker;
+  }
+
+  updateLiveTelemetry() {
+    this.renderLiveTelemetry();
+    this.renderLiveLayer();
   }
 
   renderLayers(flight, options = {}) {
@@ -646,6 +786,9 @@ export class MapPage {
       </div>
       <div class="map-panel-actions">
         <button class="btn btn-primary btn-block" type="button" data-panel-action="detail">${icon('file', 16)} 查看完整详情</button>
+        ${this.app.liveTelemetry.active
+          ? `<button class="btn btn-secondary btn-block" type="button" data-panel-action="stop-track">${icon('stop', 15)} 结束并保存飞行数据</button>`
+          : `<button class="btn btn-secondary btn-block" type="button" data-panel-action="track">${icon('gauge', 15)} 读取飞行数据</button>`}
       </div>
     </div>`;
     this.renderLegend(flight);
@@ -678,6 +821,11 @@ export class MapPage {
     else if (action === 'detail') {
       const flight = this.app.activeFlight();
       if (flight) this.app.openFlightDetail(flight.id);
+    } else if (action === 'track') {
+      const flight = this.app.activeFlight();
+      if (flight) this.app.startTracking(flight);
+    } else if (action === 'stop-track') {
+      this.app.stopTracking();
     } else if (action === 'route-mode') {
       const value = actionEl.dataset.value;
       if (value && value !== this.app.settings.routeMode) {

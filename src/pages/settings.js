@@ -93,6 +93,28 @@ export class SettingsPage {
           <div id="games-body">${this.gamesHtml()}</div>
         </section>
 
+        <section class="panel settings-card settings-storage">
+          <div class="settings-card-head">
+            <span class="settings-icon">${icon('folder', 20)}</span>
+            <div>
+              <h2>${t('下载与社区文件夹', 'Downloads & Community')}</h2>
+              <p>${t('下载的机模和插件会安装到这些目录。首次找不到时会提示选择。', 'Downloaded add-ons install here; SkyLog asks you to choose if a folder is missing.')}</p>
+            </div>
+          </div>
+          <div class="storage-row">
+            <div><span>${t('下载保存位置', 'Download folder')}</span><code>${esc(settings.downloadPath || info.downloadPath || '—')}</code></div>
+            <button class="btn btn-secondary btn-small" type="button" data-settings-action="choose-download">${t('更改', 'Change')}</button>
+          </div>
+          <div class="storage-row">
+            <div><span>MSFS Community</span><code>${esc(settings.communityFolders?.msfs || this.app.communityFolders?.msfs?.[0] || '—')}</code></div>
+            <button class="btn btn-secondary btn-small" type="button" data-settings-action="choose-community-msfs">${t('选择', 'Choose')}</button>
+          </div>
+          <div class="storage-row">
+            <div><span>X-Plane plugins</span><code>${esc(settings.communityFolders?.xplane || this.app.communityFolders?.xplane?.[0] || '—')}</code></div>
+            <button class="btn btn-secondary btn-small" type="button" data-settings-action="choose-community-xplane">${t('选择', 'Choose')}</button>
+          </div>
+        </section>
+
         <section class="panel settings-card">
           <div class="settings-card-head">
             <span class="settings-icon">${icon('sliders', 20)}</span>
@@ -320,25 +342,39 @@ export class SettingsPage {
       this.gameBound = true;
       this.root.addEventListener('click', async (event) => {
         const button = event.target.closest('[data-game-action]');
-        if (!button) return;
-        const action = button.dataset.gameAction;
-        if (action === 'detect') {
-          this.detectingGames = true;
-          this.renderGames();
-          await this.app.detectGames({ force: true });
-          this.detectingGames = false;
-          this.renderGames();
-        } else if (action === 'scan-all') {
-          await this.app.scanAllGames({ force: true });
-          this.renderGames();
-        } else if (action === 'pick') {
-          await this.app.pickGame();
-          this.renderGames();
-        } else if (action === 'launch') {
-          await this.app.launchGame();
-        } else if (action === 'select') {
-          const game = this.app.games?.[Number(button.dataset.gameIndex)];
-          if (game) await this.app.updateSettings({ game });
+        if (button) {
+          const action = button.dataset.gameAction;
+          if (action === 'detect') {
+            this.detectingGames = true;
+            this.renderGames();
+            await this.app.detectGames({ force: true });
+            this.detectingGames = false;
+            this.renderGames();
+          } else if (action === 'scan-all') {
+            await this.app.scanAllGames({ force: true });
+            this.renderGames();
+          } else if (action === 'pick') {
+            await this.app.pickGame();
+            this.renderGames();
+          } else if (action === 'launch') {
+            await this.app.launchGame();
+          } else if (action === 'select') {
+            const game = this.app.games?.[Number(button.dataset.gameIndex)];
+            if (game) await this.app.updateSettings({ game });
+          }
+          return;
+        }
+        const storage = event.target.closest('[data-settings-action]');
+        if (!storage) return;
+        if (storage.dataset.settingsAction === 'choose-download') {
+          const result = await this.app.chooseDownloadFolder();
+          if (!result.canceled) this.update();
+        } else if (storage.dataset.settingsAction === 'choose-community-msfs') {
+          const result = await this.app.chooseCommunityFolder('msfs');
+          if (!result.canceled) this.update();
+        } else if (storage.dataset.settingsAction === 'choose-community-xplane') {
+          const result = await this.app.chooseCommunityFolder('xplane');
+          if (!result.canceled) this.update();
         }
       });
     }

@@ -37,6 +37,9 @@ const DEFAULT_SETTINGS = {
   game: null,
   knownGames: [],
   gameScanDone: false,
+  communityFolders: { xplane: '', msfs: '' },
+  downloadPath: '',
+  appreciationSeen: false,
   theme: 'default',
   themeUnlocks: ['default'],
   backgroundImage: '',
@@ -846,10 +849,20 @@ export class LibraryStore {
         next[key] = patch[key];
       }
     }
-    for (const key of ['showWaypoints', 'showAlternates', 'showAllFlights', 'highlightAllRoutes', 'animations', 'gameScanDone']) {
+    for (const key of ['showWaypoints', 'showAlternates', 'showAllFlights', 'highlightAllRoutes', 'animations', 'gameScanDone', 'appreciationSeen']) {
       if (Object.prototype.hasOwnProperty.call(patch, key)) {
         next[key] = Boolean(patch[key]);
       }
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'communityFolders')) {
+      const folders = patch.communityFolders || {};
+      next.communityFolders = {
+        xplane: String(folders.xplane || '').trim().slice(0, 1024),
+        msfs: String(folders.msfs || '').trim().slice(0, 1024),
+      };
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'downloadPath')) {
+      next.downloadPath = String(patch.downloadPath || '').trim().slice(0, 1024);
     }
     if (Object.prototype.hasOwnProperty.call(patch, 'themeUnlocks')) {
       const unlocks = Array.isArray(patch.themeUnlocks) ? patch.themeUnlocks : [];

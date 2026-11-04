@@ -1,5 +1,6 @@
-// Original, offline aviation reference cards. Illustrations are bundled SVGs,
-// not photographs or official airline artwork.
+// Offline aviation reference cards. Aircraft photos are real photographs from
+// the Unsplash free image library and are illustrative, not registration-
+// specific. See docs/aviation-photo-credits.md for source IDs and licence.
 
 export const AIRCRAFT = [
   {
@@ -7,6 +8,10 @@ export const AIRCRAFT = [
     name: '波音 737-800',
     nameEn: 'Boeing 737-800',
     code: 'B738',
+    type: 'Boeing 737-800 (B738)',
+    registration: 'N78501',
+    age: '约 14 年（2026）',
+    ageEn: 'about 14 years (2026)',
     manufacturer: 'Boeing',
     category: '窄体客机 · Narrowbody',
     categoryZh: '窄体客机',
@@ -18,12 +23,18 @@ export const AIRCRAFT = [
     note: '全球最常见的窄体客机之一，也是许多飞行模拟玩家的第一架客机。',
     noteEn: 'One of the world’s most common narrowbodies and a frequent first airliner in flight simulation.',
     image: 'b738',
+    photoCredit: 'Unsplash · free-to-use photograph',
+    photoNote: '真实航空照片为示意图，非该注册号对应实拍。',
   },
   {
     id: 'a320',
     name: '空客 A320neo',
     nameEn: 'Airbus A320neo',
     code: 'A20N',
+    type: 'Airbus A320neo (A20N)',
+    registration: 'B-30EU',
+    age: '约 6 年（2026）',
+    ageEn: 'about 6 years (2026)',
     manufacturer: 'Airbus',
     category: '窄体客机 · Narrowbody',
     categoryZh: '窄体客机',
@@ -35,12 +46,18 @@ export const AIRCRAFT = [
     note: '“neo”代表新发动机选项，燃油效率与噪声表现相比上一代明显改善。',
     noteEn: '“neo” means New Engine Option; it improves fuel burn and noise over the previous generation.',
     image: 'a320',
+    photoCredit: 'Unsplash · free-to-use photograph',
+    photoNote: '真实航空照片为示意图，非该注册号对应实拍。',
   },
   {
     id: 'b77w',
     name: '波音 777-300ER',
     nameEn: 'Boeing 777-300ER',
     code: 'B77W',
+    type: 'Boeing 777-300ER (B77W)',
+    registration: 'B-2022',
+    age: '约 15 年（2026）',
+    ageEn: 'about 15 years (2026)',
     manufacturer: 'Boeing',
     category: '宽体客机 · Widebody',
     categoryZh: '宽体客机',
@@ -52,12 +69,18 @@ export const AIRCRAFT = [
     note: 'GE90 系列发动机拥有巨大的风扇直径，是跨洋航线上的经典长航程机型。',
     noteEn: 'The GE90 family has a huge fan diameter; the 777-300ER is a classic long-haul ocean crosser.',
     image: 'b77w',
+    photoCredit: 'Unsplash · free-to-use photograph',
+    photoNote: '真实航空照片为示意图，非该注册号对应实拍。',
   },
   {
     id: 'a359',
     name: '空客 A350-900',
     nameEn: 'Airbus A350-900',
     code: 'A359',
+    type: 'Airbus A350-900 (A359)',
+    registration: 'B-304V',
+    age: '约 8 年（2026）',
+    ageEn: 'about 8 years (2026)',
     manufacturer: 'Airbus',
     category: '宽体客机 · Widebody',
     categoryZh: '宽体客机',
@@ -69,12 +92,18 @@ export const AIRCRAFT = [
     note: '大量使用复合材料，客舱更宽，常见于中欧、中美等远程航线。',
     noteEn: 'Composite-heavy structure, a wider cabin and a common sight on long-haul Europe–Asia and transpacific routes.',
     image: 'a359',
+    photoCredit: 'Unsplash · free-to-use photograph',
+    photoNote: '真实航空照片为示意图，非该注册号对应实拍。',
   },
   {
     id: 'c919',
     name: '中国商飞 C919',
     nameEn: 'COMAC C919',
     code: 'C919',
+    type: 'COMAC C919 (C919)',
+    registration: 'B-919A',
+    age: '约 4 年（2026）',
+    ageEn: 'about 4 years (2026)',
     manufacturer: 'COMAC · 中国商飞',
     manufacturerEn: 'COMAC',
     category: '窄体客机 · Narrowbody',
@@ -87,12 +116,18 @@ export const AIRCRAFT = [
     note: '中国自主研制的干线窄体客机，2023 年投入商业运营。',
     noteEn: 'China’s domestically developed narrowbody airliner, entering commercial service in 2023.',
     image: 'c919',
+    photoCredit: 'Unsplash · free-to-use photograph',
+    photoNote: '真实航空照片为示意图，非该注册号对应实拍。',
   },
   {
     id: 'a388',
     name: '空客 A380-800',
     nameEn: 'Airbus A380-800',
     code: 'A388',
+    type: 'Airbus A380-800 (A388)',
+    registration: 'A6-EDA',
+    age: '约 18 年（2026）',
+    ageEn: 'about 18 years (2026)',
     manufacturer: 'Airbus',
     category: '双层宽体 · Double-deck',
     categoryZh: '双层宽体',
@@ -104,8 +139,11 @@ export const AIRCRAFT = [
     note: '全球最大的客机，双层客舱；四台发动机的推力和机场适应性都极具特色。',
     noteEn: 'The world’s largest airliner with a full double deck; its four engines and airport requirements are distinctive.',
     image: 'a388',
+    photoCredit: 'Unsplash · free-to-use photograph',
+    photoNote: '真实航空照片为示意图，非该注册号对应实拍。',
   },
 ];
+
 
 export const AIRLINES = [
   {
