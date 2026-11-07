@@ -1,6 +1,35 @@
 # Changelog
 
-> English summary: SkyLog 1.2.0 adds real aircraft photographs and type/registration/age cards, a post-import flown prompt, a local X-Plane/MSFS telemetry bridge, live map tracking with speed/altitude/heading charts, a Community-aware download centre, multi-threaded URL downloads with a floating progress button, a first-run appreciation dialog and QQ group, and a richer route transition.
+> English summary: SkyLog 1.2.1 fixes live Microsoft Flight Simulator capture by reading SimConnect directly (no in-game panel required), adds X-Plane UDP RREF telemetry, separates the aircraft gallery from home-page intros, replaces the gallery with NASA public-domain photography, and adds a flight-data diagnostics panel.
+
+## [1.2.1] - 2026-11-07
+
+### Fixed
+
+- **MSFS 2020/2024 live data now works without the Community HTML panel.** The 1.2.0 panel was never registered in the MSFS 2024 toolbar because its package lacked the required `InGamePanels/*.spb` registration and toolbar icon assets. SkyLog now speaks SimConnect directly from the Electron main process and reads latitude, longitude, altitude, IAS, heading, vertical speed and on-ground state.
+- MSFS data starts automatically when SkyLog opens with MSFS selected and a flight is active; the first sample also activates the live map recording if a planned flight is present.
+- SimConnect reconnect and status reporting now cover simulator start/quit, wrong protocol, and connection errors.
+
+### Added
+
+- X-Plane 11/12 **UDP RREF** telemetry as the primary path. FlyWithLua remains available as a fallback, but is no longer a hard requirement.
+- **Settings → 飞行数据连接** diagnostics for MSFS SimConnect, X-Plane UDP, FlyWithLua and the local telemetry port.
+- Independent **飞机图库** navigation page with six NASA Image and Video Library photographs. Photos are public-domain aviation photography and are not labeled with aircraft types, registrations or specs.
+- NASA photo credits and usage notes in `docs/aviation-photo-credits.md`.
+
+### Changed
+
+- Removed aircraft photos and aircraft intro/spec cards from the home page. The home aviation desk now only keeps airline theme cards and aviation facts.
+- Replaced the 1.2.0 Unsplash aircraft-card photos with NASA public-domain gallery images.
+- Version bumped to 1.2.1; Windows installer and macOS x64/arm64 ZIPs rebuilt.
+
+### Verification
+
+- `node-simconnect` 4.2.1 connected to a live MSFS 2024 session and produced moving samples over SimConnect (`SunRise` protocol).
+- Electron main-process SimConnect module tested against the running simulator; live map auto-started and displayed speed/altitude/heading.
+- X-Plane UDP packet/decoder path exercised with a local RREF responder.
+- Gallery, navigation, settings diagnostics and production renderer build tested in the Electron app.
+- Unit tests pass.
 
 ## [1.2.0] - 2026-11-04
 

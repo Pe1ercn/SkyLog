@@ -1,13 +1,7 @@
 import { icon } from '../lib/icons.js';
 import { esc } from '../lib/format.js';
 import { getLanguage, t } from '../lib/i18n.js';
-import { AIRCRAFT, AIRLINES, FACTS } from '../data/aviation.js';
-import b738 from '../assets/aviation/photos/b738.jpg';
-import a320 from '../assets/aviation/photos/a320.jpg';
-import b77w from '../assets/aviation/photos/b77w.jpg';
-import a359 from '../assets/aviation/photos/a359.jpg';
-import c919 from '../assets/aviation/photos/c919.jpg';
-import a388 from '../assets/aviation/photos/a388.jpg';
+import { AIRLINES, FACTS } from '../data/aviation.js';
 import airchina from '../assets/aviation/airchina.svg';
 import csair from '../assets/aviation/csair.svg';
 import ceair from '../assets/aviation/ceair.svg';
@@ -17,7 +11,6 @@ import xiamen from '../assets/aviation/xiamen.svg';
 import shanghai from '../assets/aviation/shanghai.svg';
 
 const IMAGES = {
-  b738, a320, b77w, a359, c919, a388,
   airchina, csair, ceair, shenzhen, hainan, xiamen, shanghai,
 };
 
@@ -31,8 +24,7 @@ export class LaunchPage {
     this.app = app;
     this.root = root;
     this.selectedFamily = null;
-    this.knowledgeTab = 'aircraft';
-    this.aircraftIndex = 0;
+    this.knowledgeTab = 'airlines';
     this.airlineIndex = 0;
     this.factIndex = 0;
     this.bound = false;
@@ -176,50 +168,13 @@ export class LaunchPage {
               <h2>${t('航空小课堂', 'Aviation desk')}</h2>
             </div>
             <div class="knowledge-tabs">
-              <button class="${this.knowledgeTab === 'aircraft' ? 'is-active' : ''}" type="button" data-knowledge-action="tab" data-tab="aircraft">${t('机型', 'Aircraft')}</button>
               <button class="${this.knowledgeTab === 'airlines' ? 'is-active' : ''}" type="button" data-knowledge-action="tab" data-tab="airlines">${t('航司', 'Airlines')}</button>
+              <button type="button" data-action="gallery">${t('飞机图库', 'Gallery')} ${icon('arrowRight', 12)}</button>
             </div>
           </div>
-          ${this.knowledgeTab === 'aircraft' ? this.aircraftHtml() : this.airlineHtml()}
+          ${this.airlineHtml()}
           ${this.factHtml()}
         </aside>
-      </div>
-    </div>`;
-  }
-
-  aircraftHtml() {
-    const lang = getLanguage();
-    const item = AIRCRAFT[this.aircraftIndex % AIRCRAFT.length];
-    const name = lang === 'en' ? item.nameEn : item.name;
-    const note = lang === 'en' ? item.noteEn : item.note;
-    const category = lang === 'en' ? item.categoryEn || item.category : item.categoryZh || item.category;
-    const manufacturer = lang === 'en' ? item.manufacturerEn || item.manufacturer : item.manufacturer;
-    return `<div class="knowledge-feature">
-      <div class="knowledge-image-wrap">
-        <img src="${IMAGES[item.image]}" alt="${esc(name)}" />
-        <span class="knowledge-image-code">${esc(item.code)}</span>
-        <span class="knowledge-image-caption">${t('真实照片 · Unsplash 免费图库', 'Real photo · Unsplash free library')}</span>
-      </div>
-      <div class="knowledge-feature-head">
-        <div><span class="knowledge-kicker">${esc(manufacturer)} · ${esc(category)}</span><h3>${esc(name)}</h3></div>
-        <span class="knowledge-index">${String(this.aircraftIndex + 1).padStart(2, '0')} / ${String(AIRCRAFT.length).padStart(2, '0')}</span>
-      </div>
-      <div class="knowledge-aircraft-id">
-        <span><b>${esc(item.type)}</b></span>
-        <span>${t('注册号', 'Registration')} <b>${esc(item.registration)}</b></span>
-        <span>${t('机龄', 'Age')} <b>${esc(lang === 'en' ? item.ageEn : item.age)}</b></span>
-      </div>
-      <div class="knowledge-specs">
-        <div><span>${t('典型座位', 'Typical seats')}</span><strong>${esc(item.seats)}</strong></div>
-        <div><span>${t('最大航程', 'Range')}</span><strong>${esc(item.range)}</strong></div>
-        <div><span>${t('巡航速度', 'Cruise')}</span><strong>${esc(item.cruise)}</strong></div>
-        <div><span>${t('动力', 'Power')}</span><strong>${esc(item.engines)}</strong></div>
-      </div>
-      <p class="knowledge-note">${esc(note)} <span class="knowledge-photo-note">${esc(item.photoNote)}</span></p>
-      <div class="knowledge-cycle">
-        <button class="text-btn" type="button" data-knowledge-action="aircraft-prev">${icon('arrowLeft', 14)} ${t('上一架', 'Previous')}</button>
-        <div class="knowledge-dots">${AIRCRAFT.map((_, index) => `<i class="${index === this.aircraftIndex ? 'is-active' : ''}"></i>`).join('')}</div>
-        <button class="text-btn" type="button" data-knowledge-action="aircraft-next">${t('下一架', 'Next')} ${icon('arrowRight', 14)}</button>
       </div>
     </div>`;
   }
@@ -294,11 +249,7 @@ export class LaunchPage {
       const knowledgeAction = event.target.closest('[data-knowledge-action]')?.dataset.knowledgeAction;
       if (!knowledgeAction) return;
       if (knowledgeAction === 'tab') {
-        this.knowledgeTab = event.target.closest('[data-tab]')?.dataset.tab || 'aircraft';
-      } else if (knowledgeAction === 'aircraft-prev') {
-        this.aircraftIndex = (this.aircraftIndex - 1 + AIRCRAFT.length) % AIRCRAFT.length;
-      } else if (knowledgeAction === 'aircraft-next') {
-        this.aircraftIndex = (this.aircraftIndex + 1) % AIRCRAFT.length;
+        this.knowledgeTab = event.target.closest('[data-tab]')?.dataset.tab || 'airlines';
       } else if (knowledgeAction === 'airline-prev') {
         this.airlineIndex = (this.airlineIndex - 1 + AIRLINES.length) % AIRLINES.length;
       } else if (knowledgeAction === 'airline-next') {

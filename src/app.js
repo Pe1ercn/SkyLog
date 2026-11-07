@@ -7,6 +7,7 @@ import {
 } from './ui/components.js';
 import { HomePage } from './pages/home.js';
 import { LaunchPage } from './pages/launch.js';
+import { GalleryPage } from './pages/gallery.js';
 import { MapPage } from './pages/map.js';
 import { LogPage } from './pages/log.js';
 import { DownloadsPage } from './pages/downloads.js';
@@ -32,9 +33,10 @@ import {
   themeBackgroundUri,
 } from './lib/themes.js';
 
-const ROUTES = ['home', 'details', 'map', 'log', 'downloads', 'toolbox', 'settings'];
+const ROUTES = ['home', 'gallery', 'details', 'map', 'log', 'downloads', 'toolbox', 'settings'];
 const NAV_ITEMS = [
   { route: 'home', label: '首页', titleEn: 'Home', icon: 'home' },
+  { route: 'gallery', label: '飞机图库', titleEn: 'Gallery', icon: 'image' },
   { route: 'details', label: '详情', titleEn: 'Details', icon: 'file' },
   { route: 'map', label: '飞行地图', titleEn: 'World Map', icon: 'map' },
   { route: 'log', label: '飞行日志', titleEn: 'Flight Log', icon: 'book', count: true },
@@ -44,6 +46,7 @@ const NAV_ITEMS = [
 ];
 const PAGE_META = {
   home: { title: '首页', subtitle: '选择模拟器，准备起飞。', titleEn: 'Home' },
+  gallery: { title: '飞机图库', subtitle: '真实航空摄影，独立收藏', titleEn: 'Gallery' },
   details: { title: '详情', subtitle: '把每一次起飞，都留在地图上。', titleEn: 'Details' },
   map: { title: '飞行地图', subtitle: '航路、机场与航点', titleEn: 'World Map' },
   log: { title: '飞行日志', subtitle: '一次游戏，一段旅程', titleEn: 'Flight Log' },
@@ -87,6 +90,12 @@ export class App {
       saved: false,
     };
     this.telemetryUnsubscribe = null;
+    this.telemetryStatusUnsubscribe = null;
+    this.telemetryStatus = {
+      msfs: { state: 'idle', connected: false },
+      xplane: { state: 'idle', connected: false },
+    };
+    this.autoTrackingSuppressed = false;
     this.downloadUnsubscribe = null;
   }
 
@@ -260,6 +269,8 @@ export class App {
           this.scanAllGames({ force: true });
         } else if (actionButton.dataset.action === 'create-simbrief') {
           this.openCreate();
+        } else if (actionButton.dataset.action === 'gallery') {
+          this.navigate('gallery');
         } else if (actionButton.dataset.action === 'appreciation') {
           openAppreciation(this);
         } else if (actionButton.dataset.action === 'downloads-fab') {
@@ -274,6 +285,9 @@ export class App {
   bindBridgeEvents() {
     if (window.skylog?.onTelemetry) {
       this.telemetryUnsubscribe = window.skylog.onTelemetry((sample) => this.handleTelemetry(sample));
+    }
+    if (window.skylog?.onTelemetryStatus) {
+      this.telemetryStatusUnsubscribe = window.skylog.onTelemetryStatus((status) => this.handleTelemetryStatus(status));
     }
     if (window.skylog?.onDownloadUpdate) {
       this.downloadUnsubscribe = window.skylog.onDownloadUpdate((task) => this.handleDownloadUpdate(task));
@@ -418,9 +432,13 @@ export class App {
       }
       const message = result.needsFlyWithLua
         ? result.message
-        : result.installed
-          ? 'SkyLog 遥测插件已安装到游戏社区文件夹'
-          : result.message || '遥测插件未安装';
+        : result.mode === 'simconnect'
+          ? 'MSFS 已通过 SimConnect 连接，无需安装社区插件'
+          : result.mode === 'udp-rref'
+            ? 'X-Plane UDP 已启动；若没有数据，请检查 UDP 49000 或安装 FlyWithLua'
+            : result.installed
+              ? 'SkyLog 遥测已就绪'
+              : result.message || '遥测未安装';
       toast(message, { type: result.installed ? 'success' : 'info', title: 'Flight data bridge' });
       return result;
     } catch (error) {
@@ -429,7 +447,53 @@ export class App {
     }
   }
 
+  handleTelemetryStatus(status) {
+    if (!status?.family) return;
+    const previous = this.telemetryStatus[status.family] || {};
+    this.telemetryStatus = { ...this.telemetryStatus, [status.family]: status };
+    if (status.connected && !previous.connected) {
+      toast(
+        status.family === 'msfs' ? 'MSFS SimConnect 已连接，飞行数据会自动记录' : 'X-Plane UDP 已连接',
+        { type: 'success', title: '飞行数据已连接' },
+      );
+    }
+    if (status.state === 'error' && previous.state !== 'error') {
+      toast(status.message || '飞行数据连接失败', { type: 'info', title: status.family === 'msfs' ? 'MSFS 连接' : 'X-Plane 连接' });
+    }
+    this.pages.get('map')?.renderLiveTelemetry?.();
+    const settingsPage = this.pages.get('settings');
+    if (settingsPage) {
+      settingsPage.telemetryDiagnostics = {
+        ...(settingsPage.telemetryDiagnostics || {}),
+        msfs: { ...((settingsPage.telemetryDiagnostics || {}).msfs || {}), ...(status.family === 'msfs' ? status : {}) },
+        xplane: { ...((settingsPage.telemetryDiagnostics || {}).xplane || {}), ...(status.family === 'xplane' ? status : {}) },
+      };
+      settingsPage.renderTelemetryDiagnostics?.();
+    }
+  }
+
   handleTelemetry(sample) {
+    if (!this.liveTelemetry.active && !this.autoTrackingSuppressed) {
+      const flight = this.activeFlight();
+      const automatic = ['msfs-simconnect', 'xplane-udp'].includes(sample.source) && flight;
+      if (automatic) {
+        this.liveTelemetry = {
+          active: true,
+          flightId: flight.id,
+          samples: [],
+          lastSample: null,
+          source: sample.source,
+          saved: false,
+          auto: true,
+        };
+        toast(
+          sample.source === 'msfs-simconnect'
+            ? '已自动连接 MSFS 飞行数据，正在记录这段航程'
+            : '已自动连接 X-Plane 飞行数据，正在记录这段航程',
+          { type: 'success', title: '飞行数据已接入' },
+        );
+      }
+    }
     if (!this.liveTelemetry.active) return;
     this.liveTelemetry.samples.push(sample);
     if (this.liveTelemetry.samples.length > 6000) this.liveTelemetry.samples.shift();
@@ -473,16 +537,18 @@ export class App {
         lastSample: null,
         source: family,
         saved: false,
+        auto: false,
       };
+      this.autoTrackingSuppressed = false;
       this.navigate('map');
       setTimeout(() => {
         this.pages.get('map')?.fitActive?.();
         this.pages.get('map')?.renderLiveTelemetry?.();
       }, 160);
       toast(
-        family === 'msfs'
-          ? '进入游戏后打开 SkyLog Telemetry 面板，飞行数据会自动回传'
-          : '进入 X-Plane 后遥测脚本会自动写入数据',
+        result.mode === 'simconnect' || family === 'msfs'
+          ? 'SimConnect 已连接；MSFS 中的速度、高度、航向和轨迹会自动回传'
+          : 'X-Plane UDP 已启动；如果没数据，请检查 UDP 49000 或安装 FlyWithLua',
         { type: 'info', title: '等待飞行数据' },
       );
       return { ok: true, ...result };
@@ -501,6 +567,7 @@ export class App {
       if (flightId && samples.length) await api.saveTelemetry({ flightId, samples });
       this.liveTelemetry.active = false;
       this.liveTelemetry.saved = true;
+      this.autoTrackingSuppressed = true;
       this.refresh({ map: false });
       toast(`飞行数据已保存 · ${samples.length} 个采样点`, { type: 'success', title: '飞行结束' });
     } catch (error) {
@@ -517,7 +584,7 @@ export class App {
         event.preventDefault();
         this.openImport();
       }
-      if ((event.ctrlKey || event.metaKey) && ['1', '2', '3', '4', '5', '6', '7'].includes(event.key)) {
+      if ((event.ctrlKey || event.metaKey) && ['1', '2', '3', '4', '5', '6', '7', '8'].includes(event.key)) {
         event.preventDefault();
         this.navigate(ROUTES[Number(event.key) - 1]);
       }
@@ -622,6 +689,7 @@ export class App {
     if (route === 'home') page = new LaunchPage(this, root);
     else if (route === 'details') page = new HomePage(this, root);
     else if (route === 'map') page = new MapPage(this, root);
+    else if (route === 'gallery') page = new GalleryPage(this, root);
     else if (route === 'log') page = new LogPage(this, root);
     else if (route === 'downloads') page = new DownloadsPage(this, root);
     else if (route === 'toolbox') page = new ToolboxPage(this, root);

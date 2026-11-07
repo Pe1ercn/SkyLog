@@ -1,7 +1,7 @@
 {
   "name": "skylog",
   "productName": "SkyLog",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "SkyLog 航迹 — SimBrief 飞行计划与飞行日志",
   "author": "SkyLog contributors",
   "license": "MIT",
@@ -31,7 +31,7 @@
     "build": "vite build",
     "start": "npm run build && electron .",
     "dev": "vite",
-    "test:unit": "node --test --test-isolation=none tests/unit/plan.test.js tests/unit/geo.test.js tests/unit/simbrief.test.js tests/unit/store.test.js tests/unit/games.test.js tests/unit/simbrief-create.test.js tests/unit/map-data.test.js tests/unit/themes.test.js tests/unit/telemetry.test.js tests/unit/community.test.js",
+    "test:unit": "node --test --test-isolation=none tests/unit/plan.test.js tests/unit/geo.test.js tests/unit/simbrief.test.js tests/unit/store.test.js tests/unit/games.test.js tests/unit/simbrief-create.test.js tests/unit/map-data.test.js tests/unit/themes.test.js tests/unit/telemetry.test.js tests/unit/community.test.js tests/unit/xplane-udp.test.js",
     "dist": "npm run build && electron-builder --win nsis",
     "pack": "npm run build && electron-builder --win dir",
     "dist:mac": "npm run build && electron-builder --mac zip",
@@ -39,7 +39,8 @@
   },
   "dependencies": {
     "7zip-bin": "^5.2.0",
-    "leaflet": "^1.9.4"
+    "leaflet": "^1.9.4",
+    "node-simconnect": "^4.2.1"
   },
   "devDependencies": {
     "electron": "^43.3.0",
@@ -60,6 +61,10 @@
       "shared/**/*",
       "plugins/**/*",
       "node_modules/7zip-bin/**/*",
+      "node_modules/node-simconnect/**/*",
+      "node_modules/ini/**/*",
+      "node_modules/debug/**/*",
+      "node_modules/ms/**/*",
       "build/icon.png",
       "package.json",
       "!**/*.map",

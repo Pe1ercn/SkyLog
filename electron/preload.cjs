@@ -38,6 +38,12 @@ contextBridge.exposeInMainWorld('skylog', {
   startTelemetry: (payload) => invoke('telemetry:start', payload),
   stopTelemetry: () => invoke('telemetry:stop'),
   saveTelemetry: (payload) => invoke('telemetry:save', payload),
+  getTelemetryDiagnostics: () => invoke('telemetry:diagnostics'),
+  onTelemetryStatus: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('telemetry:status', listener);
+    return () => ipcRenderer.removeListener('telemetry:status', listener);
+  },
   startDownload: (payload) => invoke('downloads:start', payload),
   listDownloads: () => invoke('downloads:list'),
   cancelDownload: (id) => invoke('downloads:cancel', { id }),

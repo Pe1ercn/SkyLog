@@ -62,6 +62,7 @@ export const api = {
   startTelemetry: (payload) => call('startTelemetry', payload),
   stopTelemetry: () => call('stopTelemetry'),
   saveTelemetry: (payload) => call('saveTelemetry', payload),
+  getTelemetryDiagnostics: () => call('getTelemetryDiagnostics'),
   startDownload: (payload) => call('startDownload', payload),
   listDownloads: () => call('listDownloads'),
   cancelDownload: (id) => call('cancelDownload', id),

@@ -30,6 +30,7 @@ export class SettingsPage {
     this.root.innerHTML = this.html();
     this.bind();
     this.loadGames();
+    this.loadTelemetryDiagnostics();
   }
 
   show() {
@@ -112,6 +113,20 @@ export class SettingsPage {
           <div class="storage-row">
             <div><span>X-Plane plugins</span><code>${esc(settings.communityFolders?.xplane || this.app.communityFolders?.xplane?.[0] || '—')}</code></div>
             <button class="btn btn-secondary btn-small" type="button" data-settings-action="choose-community-xplane">${t('选择', 'Choose')}</button>
+          </div>
+        </section>
+
+        <section class="panel settings-card settings-telemetry">
+          <div class="settings-card-head">
+            <span class="settings-icon">${icon('gauge', 20)}</span>
+            <div>
+              <h2>${t('飞行数据连接', 'Flight data connection')}</h2>
+              <p>${t('MSFS 通过 SimConnect 直接读取；X-Plane 使用 UDP RREF，FlyWithLua 脚本作为备用。', 'MSFS uses SimConnect directly; X-Plane uses UDP RREF with a FlyWithLua fallback.')}</p>
+            </div>
+          </div>
+          <div id="telemetry-diagnostics">${this.telemetryDiagnosticsHtml()}</div>
+          <div class="diagnostic-actions">
+            <button class="btn btn-secondary btn-small" type="button" data-settings-action="telemetry-refresh">${icon('refresh', 14)} ${t('重新检测', 'Check again')}</button>
           </div>
         </section>
 
@@ -219,6 +234,52 @@ export class SettingsPage {
         </section>
       </div>
     </div>`;
+  }
+
+  telemetryDiagnosticsHtml() {
+    const diagnostics = this.telemetryDiagnostics || {};
+    const msfs = { ...(diagnostics.msfs || {}), ...(this.app.telemetryStatus?.msfs || {}) };
+    const xplane = { ...(diagnostics.xplane || {}), ...(this.app.telemetryStatus?.xplane || {}) };
+    const bridge = diagnostics.bridge || {};
+    const stateLabel = (item) => {
+      if (item.connected) return `<span class="diag-state is-ok">${icon('checkCircle', 13)} ${t('已连接', 'Connected')}</span>`;
+      if (item.state === 'error') return `<span class="diag-state is-error">${icon('alert', 13)} ${t('连接失败', 'Failed')}</span>`;
+      return `<span class="diag-state">${icon('loading', 13)} ${t('等待中', 'Waiting')}</span>`;
+    };
+    return `<div class="diagnostic-list">
+      <div class="diagnostic-row">
+        <div class="diagnostic-name"><strong>MSFS SimConnect</strong><span>${esc(msfs.message || t('尚未检测', 'Not checked'))}</span></div>
+        ${stateLabel(msfs)}
+      </div>
+      <div class="diagnostic-row">
+        <div class="diagnostic-name"><strong>X-Plane UDP RREF</strong><span>${esc(xplane.message || t('端口 49000，等待游戏数据', 'Port 49000, waiting for game data'))}</span></div>
+        ${stateLabel(xplane)}
+      </div>
+      <div class="diagnostic-row">
+        <div class="diagnostic-name"><strong>X-Plane FlyWithLua</strong><span>${xplane.pluginInstalled ? t('脚本已安装', 'Script installed') : t('可选备用方案', 'Optional fallback')}</span></div>
+        <span class="diag-state ${xplane.pluginInstalled ? 'is-ok' : ''}">${xplane.pluginInstalled ? t('就绪', 'Ready') : t('未安装', 'Not installed')}</span>
+      </div>
+      <div class="diagnostic-meta">
+        ${icon('wifi', 14)} ${t('本地数据端口', 'Local data port')} ${esc(String(bridge.port || this.app.appInfo?.telemetryPort || 42831))}
+        ${msfs.game?.title ? ` · ${esc(msfs.game.title)}` : ''}
+        ${xplane.game?.title ? ` · ${esc(xplane.game.title)}` : ''}
+      </div>
+    </div>`;
+  }
+
+  renderTelemetryDiagnostics() {
+    const host = this.root.querySelector('#telemetry-diagnostics');
+    if (host) host.innerHTML = this.telemetryDiagnosticsHtml();
+  }
+
+  async loadTelemetryDiagnostics() {
+    try {
+      this.telemetryDiagnostics = await api.getTelemetryDiagnostics();
+      this.renderTelemetryDiagnostics();
+    } catch (error) {
+      this.telemetryDiagnostics = { msfs: { state: 'error', message: errorMessage(error) }, xplane: { state: 'error', message: errorMessage(error) } };
+      this.renderTelemetryDiagnostics();
+    }
   }
 
   gamesHtml() {
@@ -375,6 +436,8 @@ export class SettingsPage {
         } else if (storage.dataset.settingsAction === 'choose-community-xplane') {
           const result = await this.app.chooseCommunityFolder('xplane');
           if (!result.canceled) this.update();
+        } else if (storage.dataset.settingsAction === 'telemetry-refresh') {
+          await this.loadTelemetryDiagnostics();
         }
       });
     }

@@ -316,7 +316,163 @@
   font-size: 11px;
 }
 
-/* Live telemetry */
+/* Aircraft gallery */
+.gallery-page {
+  width: 100%;
+  max-width: 1620px;
+  margin: 0 auto;
+}
+
+.gallery-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.5);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.gallery-card {
+  position: relative;
+  overflow: hidden;
+  display: block;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: var(--shadow-xs);
+  text-align: left;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.gallery-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--line));
+  box-shadow: var(--shadow-md);
+}
+
+.gallery-photo {
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  background: var(--primary-soft);
+}
+
+.gallery-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.gallery-card:hover .gallery-photo img {
+  transform: scale(1.045);
+}
+
+.gallery-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px 13px 13px;
+}
+
+.gallery-code {
+  color: var(--primary);
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.gallery-meta strong {
+  font-size: 14px;
+  letter-spacing: -0.02em;
+}
+
+.gallery-meta small {
+  color: var(--muted-2);
+  font-size: 9px;
+}
+
+.gallery-open {
+  position: absolute;
+  right: 11px;
+  top: 11px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 8px;
+  color: #fff;
+  background: rgba(7, 26, 49, 0.38);
+  backdrop-filter: blur(8px);
+}
+
+.gallery-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.gallery-modal {
+  width: min(760px, calc(100vw - 40px));
+}
+
+.gallery-modal-photo {
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--primary-soft);
+}
+
+.gallery-modal-photo img {
+  display: block;
+  width: 100%;
+  max-height: 56vh;
+  object-fit: contain;
+}
+
+.gallery-modal-caption {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.gallery-modal-caption span {
+  color: var(--muted-2);
+}
+
+@media (max-width: 1100px) {
+  .gallery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .gallery-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .live-telemetry {
   position: absolute;
   right: 78px;
@@ -718,6 +874,76 @@
   font-size: 9.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.diagnostic-list {
+  display: grid;
+  gap: 6px;
+}
+
+.diagnostic-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.diagnostic-name {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.diagnostic-name strong {
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.diagnostic-name span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diag-state {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.diag-state.is-ok {
+  color: #168a69;
+}
+
+.diag-state.is-error {
+  color: #c43d4b;
+}
+
+.diagnostic-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding-top: 4px;
+  color: var(--muted-2);
+  font-family: var(--mono);
+  font-size: 8.5px;
+}
+
+.diagnostic-actions {
+  margin-top: 10px;
 }
 
 @media (max-width: 1000px) {

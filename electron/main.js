@@ -32,9 +32,11 @@ import {
   scanAllGames,
 } from './games.js';
 import { DownloadManager } from './downloads.js';
-import { TelemetryBridge } from './telemetry.js';
+import { TelemetryBridge, TELEMETRY_PORT } from './telemetry.js';
 import { detectCommunityFolders } from './community.js';
 import { installTelemetryPlugin } from './plugins.js';
+import { SimConnectBridge } from './simconnect.js';
+import { XPlaneUdpBridge } from './xplane-udp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -55,6 +57,8 @@ let previewCache = new Map();
 let previewTimer = null;
 let telemetry = null;
 let telemetrySession = null;
+let simconnect = null;
+let xplaneUdp = null;
 let downloads = null;
 
 const gotLock = app.requestSingleInstanceLock();
@@ -578,14 +582,83 @@ function initIpc() {
       });
     }
     await telemetry.start();
-    const installed = installTelemetryPlugin({
+    if (family === 'msfs') {
+      if (process.platform !== 'win32') {
+        throw new StoreError('MSFS SimConnect 仅支持 Windows', 'simconnect-unsupported');
+      }
+      if (!simconnect) {
+        simconnect = new SimConnectBridge({
+          logger,
+          onSample: (sample) => telemetry?.ingest(sample),
+          onStatus: (status) => sendEvent('telemetry:status', status),
+        });
+      }
+      simconnect.start();
+      telemetrySession = {
+        flightId: String(payload.flightId || ''),
+        family,
+        game,
+        transport: 'simconnect',
+        startedAt: new Date().toISOString(),
+      };
+      return {
+        installed: true,
+        family,
+        mode: 'simconnect',
+        transport: 'simconnect',
+        message: 'MSFS 通过 SimConnect 直接读取飞行数据，无需安装社区插件。',
+        port: telemetry.port,
+        bridgeUrl: `http://127.0.0.1:${telemetry.port}`,
+        session: telemetrySession,
+      };
+    }
+    let plugin = null;
+    try {
+      plugin = installTelemetryPlugin({
+        family,
+        games: known,
+        customFolder: communitySettings()[family] || '',
+        projectRoot,
+        platform: process.platform,
+      });
+      if (plugin.telemetryFile) telemetry.watchFile(plugin.telemetryFile, family);
+    } catch (error) {
+      logger(`[telemetry] optional X-Plane plugin install failed: ${error?.message || error}`);
+    }
+    if (family === 'xplane') {
+      if (!xplaneUdp) {
+        xplaneUdp = new XPlaneUdpBridge({
+          logger,
+          onSample: (sample) => telemetry?.ingest(sample),
+          onStatus: (status) => sendEvent('telemetry:status', status),
+        });
+      }
+      xplaneUdp.start();
+      telemetrySession = {
+        flightId: String(payload.flightId || ''),
+        family,
+        game,
+        transport: 'udp-rref',
+        startedAt: new Date().toISOString(),
+      };
+      return {
+        installed: true,
+        family,
+        mode: 'udp-rref',
+        transport: 'udp-rref',
+        plugin,
+        telemetryFile: plugin?.telemetryFile || '',
+        message: 'X-Plane 通过 UDP RREF 读取飞行数据；若未启用 UDP，可同时在 X-Plane 中安装 FlyWithLua 脚本。',
+        port: telemetry.port,
+        bridgeUrl: `http://127.0.0.1:${telemetry.port}`,
+        session: telemetrySession,
+      };
+    }
+    const installed = plugin || {
+      installed: false,
       family,
-      games: known,
-      customFolder: communitySettings()[family] || '',
-      projectRoot,
-      platform: process.platform,
-    });
-    if (installed.telemetryFile) telemetry.watchFile(installed.telemetryFile, family);
+      message: '不支持的游戏系列。',
+    };
     telemetrySession = {
       flightId: String(payload.flightId || ''),
       family,
@@ -602,9 +675,45 @@ function initIpc() {
 
   handle('telemetry:stop', async () => {
     telemetry?.stopFileWatch();
+    simconnect?.stop();
+    xplaneUdp?.stop();
     const session = telemetrySession;
     telemetrySession = null;
     return { stopped: true, session };
+  });
+
+  handle('telemetry:diagnostics', async () => {
+    const settings = store.getLibrary().settings || {};
+    const known = settings.knownGames || [];
+    const msfsGame = (settings.game?.family === 'msfs' ? settings.game : null)
+      || known.find((game) => game.family === 'msfs')
+      || null;
+    const xplaneGame = (settings.game?.family === 'xplane' ? settings.game : null)
+      || known.find((game) => game.family === 'xplane')
+      || null;
+    const xplaneCommunity = communitySettings().xplane || '';
+    const luaCandidates = [];
+    if (xplaneCommunity) {
+      luaCandidates.push(path.join(xplaneCommunity, 'FlyWithLua', 'Scripts', 'SkyLogTelemetry.lua'));
+      luaCandidates.push(path.join(xplaneCommunity, 'SkyLogTelemetry', 'SkyLogTelemetry.lua'));
+    }
+    return {
+      msfs: {
+        ...(simconnect?.diagnostics() || { state: 'not-started', connected: false }),
+        game: msfsGame ? { title: msfsGame.title, path: msfsGame.path } : null,
+      },
+      xplane: {
+        ...(xplaneUdp?.diagnostics() || { state: 'not-started', connected: false }),
+        game: xplaneGame ? { title: xplaneGame.title, path: xplaneGame.path } : null,
+        pluginInstalled: luaCandidates.some((file) => fs.existsSync(file)),
+        pluginFiles: luaCandidates,
+        telemetryPort: telemetry?.port || TELEMETRY_PORT,
+      },
+      bridge: {
+        listening: Boolean(telemetry?.server),
+        port: telemetry?.port || TELEMETRY_PORT,
+      },
+    };
   });
 
   handle('telemetry:save', async (_event, { flightId, samples } = {}) => {
@@ -707,6 +816,20 @@ app.whenReady().then(() => {
   telemetry.start().then((result) => {
     if (!result.ok) logger(`[telemetry] bridge unavailable: ${result.error}`);
   });
+  const sourceOptions = {
+    logger,
+    onSample: (sample) => telemetry?.ingest(sample),
+    onStatus: (status) => sendEvent('telemetry:status', status),
+  };
+  const selectedFamily = store.getLibrary().settings?.game?.family;
+  if (process.platform === 'win32' && selectedFamily === 'msfs') {
+    simconnect = new SimConnectBridge(sourceOptions);
+    simconnect.start().catch((error) => logger(`[simconnect] start failed: ${error?.message || error}`));
+  }
+  if (selectedFamily === 'xplane') {
+    xplaneUdp = new XPlaneUdpBridge(sourceOptions);
+    xplaneUdp.start();
+  }
   if (process.platform === 'darwin') {
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       {

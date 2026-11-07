@@ -1,14 +1,16 @@
 # Aircraft photo credits
 
-SkyLog 1.2.0 uses real aircraft photographs from the **Unsplash** free image library for the aviation knowledge cards. They are illustrative photographs, not registration-specific aircraft photos. The registration and age fields are representative examples for the type.
+SkyLog 1.2.1 的“飞机图库”使用 **NASA Image and Video Library** 的公共领域航空摄影。该页面只展示画面，不标注具体机型、注册号或性能参数；图片不作为机型识别或注册信息使用。
 
-| SkyLog card | Unsplash photo ID | Source |
-| --- | --- | --- |
-| Boeing 737-800 | `photo-1521727857535-28d2047314ac` | `https://images.unsplash.com/photo-1521727857535-28d2047314ac` |
-| Airbus A320neo | `photo-1569629743817-70d8db6c323b` | `https://images.unsplash.com/photo-1569629743817-70d8db6c323b` |
-| Boeing 777-300ER | `photo-1529074963764-98f45c47344b` | `https://images.unsplash.com/photo-1529074963764-98f45c47344b` |
-| Airbus A350-900 | `photo-1556388158-158ea5ccacbd` | `https://images.unsplash.com/photo-1556388158-158ea5ccacbd` |
-| COMAC C919 | `photo-1436491865332-7a61a109cc05` | `https://images.unsplash.com/photo-1436491865332-7a61a109cc05` |
-| Airbus A380-800 | `photo-1506012787146-f92b2d7d6d96` | `https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96` |
+| SkyLog 文件 | NASA Image ID | 摄影 | 来源 |
+| --- | --- | --- | --- |
+| `01-desert-pair.jpg` | `AFRC2025-0168-018` | NASA / Jim Ross | https://images.nasa.gov/details/AFRC2025-0168-018 |
+| `02-sky-carrier.jpg` | `EC01-0129-18` | NASA / Tony Landis | https://images.nasa.gov/details/EC01-0129-18 |
+| `03-air-refuel.jpg` | `EC05-0148-30` | NASA / Carla Thomas | https://images.nasa.gov/details/EC05-0148-30 |
+| `04-snowline.jpg` | `EC98-44444-007` | NASA / Jim Ross | https://images.nasa.gov/details/EC98-44444-007 |
+| `05-sunrise-ramp.jpg` | `ED06-0202-001` | NASA / Tony Landis | https://images.nasa.gov/details/ED06-0202-001 |
+| `06-nose-dome.jpg` | `GRC-2015-C-07522` | NASA | https://images.nasa.gov/details/GRC-2015-C-07522 |
 
-The photographs are used under the [Unsplash License](https://unsplash.com/license). Unsplash does not require attribution, but SkyLog keeps this record for transparency. If a photographer or rights holder wants a change, please contact the project and the image will be replaced or removed.
+这些图片来自 NASA 的公开影像库。NASA 内容通常在美国不受版权保护，使用时应遵守 [NASA Media Usage Guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/)；图片中可能出现的第三方标识仍归其各自权利人所有。SkyLog 不声称拥有这些照片的版权，也不将其作为官方 NASA 产品发布。
+
+旧版 Unsplash 机型卡片图片已在 1.2.1 中移除；首页不再显示飞机照片或机型介绍卡片。
