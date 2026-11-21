@@ -1,7 +1,7 @@
 {
   "name": "skylog",
   "productName": "SkyLog",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "SkyLog 航迹 — SimBrief 飞行计划与飞行日志",
   "author": "SkyLog contributors",
   "license": "MIT",
@@ -31,7 +31,7 @@
     "build": "vite build",
     "start": "npm run build && electron .",
     "dev": "vite",
-    "test:unit": "node --test --test-isolation=none tests/unit/plan.test.js tests/unit/geo.test.js tests/unit/simbrief.test.js tests/unit/store.test.js tests/unit/games.test.js tests/unit/simbrief-create.test.js tests/unit/map-data.test.js tests/unit/themes.test.js tests/unit/telemetry.test.js tests/unit/community.test.js tests/unit/xplane-udp.test.js",
+    "test:unit": "node --test --test-isolation=none tests/unit/plan.test.js tests/unit/geo.test.js tests/unit/simbrief.test.js tests/unit/store.test.js tests/unit/games.test.js tests/unit/simbrief-create.test.js tests/unit/map-data.test.js tests/unit/themes.test.js tests/unit/telemetry.test.js tests/unit/community.test.js tests/unit/xplane-udp.test.js tests/unit/legal.test.js",
     "dist": "npm run build && electron-builder --win nsis",
     "pack": "npm run build && electron-builder --win dir",
     "dist:mac": "npm run build && electron-builder --mac zip",

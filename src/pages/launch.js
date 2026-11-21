@@ -1,32 +1,41 @@
 import { icon } from '../lib/icons.js';
-import { esc } from '../lib/format.js';
+import { esc, formatDistance, formatDuration, statusClass, statusText } from '../lib/format.js';
 import { getLanguage, t } from '../lib/i18n.js';
-import { AIRLINES, FACTS } from '../data/aviation.js';
-import airchina from '../assets/aviation/airchina.svg';
-import csair from '../assets/aviation/csair.svg';
-import ceair from '../assets/aviation/ceair.svg';
-import shenzhen from '../assets/aviation/shenzhen.svg';
-import hainan from '../assets/aviation/hainan.svg';
-import xiamen from '../assets/aviation/xiamen.svg';
-import shanghai from '../assets/aviation/shanghai.svg';
-
-const IMAGES = {
-  airchina, csair, ceair, shenzhen, hainan, xiamen, shanghai,
-};
 
 const FAMILIES = [
-  { id: 'xplane', name: 'X-Plane', variants: '11 / 12', mark: 'XP', tone: 'xplane' },
-  { id: 'msfs', name: 'Microsoft Flight Simulator', variants: '2020 / 2024', mark: 'MSFS', tone: 'msfs' },
+  { id: 'msfs', name: 'Microsoft Flight Simulator', short: 'MSFS', variants: '2020 / 2024', mark: 'MSFS' },
+  { id: 'xplane', name: 'X-Plane', short: 'X-Plane', variants: '11 / 12', mark: 'XP' },
 ];
+
+function flightCode(flight) {
+  return flight?.callsign || flight?.flightNumber || '—';
+}
+
+function airportCode(airport) {
+  return airport?.iata || airport?.icao || '—';
+}
+
+function dateLabel(flight) {
+  const raw = flight?.actualIn || flight?.actualOut || flight?.scheduledIn || flight?.scheduledOut || flight?.createdAt;
+  const date = raw ? new Date(raw) : null;
+  if (!date || Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString(getLanguage() === 'en' ? 'en-US' : 'zh-CN', {
+    month: 'short',
+    day: '2-digit',
+  }).toUpperCase();
+}
+
+function yearLabel(flight) {
+  const raw = flight?.actualIn || flight?.actualOut || flight?.scheduledOut || flight?.createdAt;
+  const date = raw ? new Date(raw) : null;
+  return date && !Number.isNaN(date.getTime()) ? date.getFullYear() : '—';
+}
 
 export class LaunchPage {
   constructor(app, root) {
     this.app = app;
     this.root = root;
     this.selectedFamily = null;
-    this.knowledgeTab = 'airlines';
-    this.airlineIndex = 0;
-    this.factIndex = 0;
     this.bound = false;
     this.familyPinned = false;
   }
@@ -37,18 +46,6 @@ export class LaunchPage {
 
   show() {
     this.update();
-  }
-
-  update() {
-    if (!this.app.library) return;
-    const games = this.app.games || [];
-    if (!this.selectedFamily) {
-      this.selectedFamily = this.app.selectedGame?.family || games[0]?.family || 'xplane';
-    } else if (!this.familyPinned && games.length && this.familyGames(this.selectedFamily).length === 0) {
-      this.selectedFamily = this.app.selectedGame?.family || games[0]?.family || this.selectedFamily;
-    }
-    this.root.innerHTML = this.html();
-    this.bind();
   }
 
   familyGames(family) {
@@ -64,157 +61,171 @@ export class LaunchPage {
     return this.familyGames(family)[0] || null;
   }
 
+  recentFlights() {
+    return [...(this.app.library?.flights || [])]
+      .sort((a, b) => new Date(b.actualIn || b.scheduledIn || b.createdAt || 0) - new Date(a.actualIn || a.scheduledIn || a.createdAt || 0))
+      .slice(0, 8);
+  }
+
   gameSubtitle(game) {
-    if (!game) return '';
+    if (!game) return t('等待游戏检测', 'Waiting for game detection');
     if (game.source === 'steam') return t('Steam 库', 'Steam library');
     if (game.kind === 'appx') return t('Microsoft Store', 'Microsoft Store');
     if (game.source === 'registry') return t('安装记录', 'Registry');
     return t('本机安装', 'Local install');
   }
 
-  html() {
-    const lang = getLanguage();
+  update() {
+    if (!this.app.library) return;
     const games = this.app.games || [];
+    if (!this.selectedFamily) {
+      this.selectedFamily = this.app.selectedGame?.family || games[0]?.family || 'msfs';
+    }
+    if (!this.familyPinned && games.length && !this.familyGames(this.selectedFamily).length) {
+      this.selectedFamily = this.app.selectedGame?.family || games[0]?.family || this.selectedFamily;
+    }
+    this.root.innerHTML = this.html();
+    this.bind();
+  }
+
+  html() {
+    const family = this.selectedFamily || 'msfs';
     const active = this.activeGame();
-    const scanning = this.app.gamesScanning;
-    const xplaneCount = this.familyGames('xplane').length;
-    const msfsCount = this.familyGames('msfs').length;
-    const selectedFamilyCount = this.selectedFamily === 'xplane' ? xplaneCount : msfsCount;
-    const familyOptions = FAMILIES.map((family) => {
-      const count = family.id === 'xplane' ? xplaneCount : msfsCount;
-      return `<button class="sim-family ${this.selectedFamily === family.id ? 'is-active' : ''} tone-${family.tone}" type="button" data-launch-action="family" data-family="${family.id}">
-        <span class="sim-family-mark">${family.mark}</span>
-        <span class="sim-family-copy"><strong>${family.name}</strong><small>${family.variants}</small></span>
-        <span class="sim-family-count">${count}</span>
+    const games = this.familyGames(family);
+    const flights = this.recentFlights();
+    const allFlights = this.app.library?.flights || [];
+    const totalMinutes = allFlights.reduce((sum, item) => sum + (Number(item.blockMinutes) || 0), 0);
+    const totalDistance = allFlights.reduce((sum, item) => sum + (Number(item.distanceNm) || 0), 0);
+    const live = this.app.liveTelemetry;
+    const telemetry = this.app.telemetryStatus?.[family] || {};
+    const nextFlight = this.app.activeFlight() || flights.find((item) => item.status !== 'flown') || null;
+    const familyOptions = FAMILIES.map((item) => {
+      const count = this.familyGames(item.id).length;
+      return `<button class="home-sim-tab ${family === item.id ? 'is-active' : ''}" type="button" data-home-family="${item.id}">
+        <span class="home-sim-mark">${item.mark}</span>
+        <span><b>${item.short}</b><small>${item.variants} · ${count || '—'}</small></span>
       </button>`;
     }).join('');
 
-    const gameOptions = this.familyGames(this.selectedFamily)
-      .map((game, index) => {
-        const activeOption = active && game.target === active.target;
-        return `<button class="launch-game-option ${activeOption ? 'is-active' : ''}" type="button" data-launch-action="select" data-game-index="${index}">
-          <span class="launch-game-icon">${icon(this.selectedFamily === 'xplane' ? 'navigation' : 'plane', 16)}</span>
-          <span class="launch-game-copy"><strong>${esc(game.title)}</strong><small>${esc(this.gameSubtitle(game))}${game.source === 'steam' ? ' · Steam' : ''}</small></span>
-          <span class="launch-game-check">${activeOption ? icon('checkCircle', 16) : icon('chevronRight', 15)}</span>
-        </button>`;
-      })
-      .join('');
-
-    const launchButton = active
-      ? `<button class="launch-primary" type="button" data-launch-action="launch" ${scanning ? 'disabled' : ''}>
-          <span class="launch-primary-orb">${icon(scanning ? 'loading' : 'play', 24)}</span>
-          <span class="launch-primary-copy">
-            <small>${scanning ? t('正在全盘搜索…', 'Scanning drives…') : t('准备起飞', 'READY FOR DEPARTURE')}</small>
-            <strong>${t('启动', 'Launch')} ${esc(active.title)}</strong>
-            <em>${esc(this.gameSubtitle(active))}${active.source === 'steam' && this.app.appInfo?.platform === 'darwin' ? t(' · 通过 Steam 启动', ' · via Steam') : ''}</em>
-          </span>
-          <span class="launch-primary-arrow">${icon('arrowRight', 20)}</span>
-        </button>`
-      : `<div class="launch-empty">
-          ${icon('gamepad', 28)}
-          <strong>${t('还没有找到这个系列的游戏', 'No game found in this family yet')}</strong>
-          <span>${t('首次启动会自动全盘搜索；也可以手动选择游戏本体。', 'The first launch scans your drives; you can also choose the game manually.')}</span>
-          <div class="launch-empty-actions">
-            <button class="btn btn-secondary" type="button" data-launch-action="scan">${icon('scan', 15)} ${t('全盘搜索', 'Scan drives')}</button>
-            <button class="btn btn-secondary" type="button" data-launch-action="pick">${icon('folder', 15)} ${t('手动选择', 'Choose manually')}</button>
-          </div>
-        </div>`;
-
-    return `<div class="launch-page">
-      <header class="page-head launch-head">
+    return `<div class="cockpit-home">
+      <header class="home-hero">
         <div>
-          <p class="eyebrow">FLIGHT DECK · ${esc(new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'zh-CN', { month: 'long', day: 'numeric' }))}</p>
-          <h1>${t('准备起飞', 'Ready for departure')}</h1>
-          <p class="page-sub">${t('选择模拟器，启动游戏，再让 SkyLog 记录这一段航程。', 'Choose a simulator, launch it, and let SkyLog keep the flight.')}</p>
+          <div class="home-eyebrow">${icon('home', 12)} HOME / FLIGHT DECK</div>
+          <h1>${t('从地面开始，', 'From the ground,')}<span>${t('继续你的航迹。', 'keep your track going.')}</span></h1>
+          <p>${t('准备好下一次起飞，或从历史航迹里找回一段天空。', 'Prepare the next departure, or revisit a piece of sky from your archive.')}</p>
         </div>
-        <div class="launch-head-status">
-          <span class="launch-status-dot ${scanning ? 'is-scanning' : games.length ? 'is-ready' : ''}"></span>
-          <span>${scanning ? t('全盘搜索中', 'Scanning drives') : games.length ? t(`${games.length} 个游戏就绪`, `${games.length} games ready`) : t('等待游戏', 'Waiting for a game')}</span>
+        <div class="home-hero-stats">
+          <div><small>THIS WEEK</small><strong>${String(allFlights.length ? Math.min(9, allFlights.length) : 0).padStart(2, '0')}<em>${t('航段', 'sorties')}</em></strong></div>
+          <div><small>AIRBORNE</small><strong>${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}<em>h</em></strong></div>
         </div>
       </header>
 
-      <div class="launch-layout">
-        <section class="panel launch-panel">
-          <div class="launch-panel-head">
-            <div>
-              <p class="eyebrow">SIMULATOR</p>
-              <h2>${t('选择你的天空', 'Choose your sky')}</h2>
+      <div class="home-layout">
+        <section class="home-launch-card">
+          <div class="home-card-head">
+            <span>SIMULATOR / LAUNCH</span>
+            <span class="home-link-status ${telemetry.connected ? 'is-on' : ''}"><i></i>${telemetry.connected ? 'SIMCONNECT' : 'STANDBY'}</span>
+          </div>
+
+          <div class="home-sim-tabs">${familyOptions}</div>
+
+          ${active ? `
+            <div class="home-game-title">${esc(active.title)}</div>
+            <div class="home-game-sub"><i></i>${esc(this.gameSubtitle(active))} <span>·</span> ${t('已检测', 'detected')}</div>
+
+            <div class="launch-radar">
+              <div class="launch-radar-rings"></div>
+              <div class="launch-radar-sweep"></div>
+              <div class="launch-radar-label">SIMCONNECT / READY</div>
+              <div class="launch-radar-meta"><b>${family === 'msfs' ? 'MSFS 2024' : 'X-PLANE 12'}</b><span>${telemetry.connected ? t('实时数据已连接', 'LIVE DATA LINK') : t('等待模拟器', 'WAITING FOR SIM')}</span></div>
+              <div class="launch-plane">${icon('navigation', 44)}</div>
+              <div class="launch-radar-bottom">
+                <span>${live.active ? t('正在记录本段航程', 'RECORDING THIS FLIGHT') : t('准备起飞', 'READY FOR DEPARTURE')}</span>
+                <small>${active.source === 'steam' ? 'STEAM / ' : ''}${esc(active.path ? 'LOCAL' : 'SIM')}</small>
+              </div>
             </div>
-            <button class="text-btn" type="button" data-launch-action="scan">${icon('scan', 14)} ${t('重新搜索', 'Rescan')}</button>
-          </div>
-          <div class="sim-family-grid">${familyOptions}</div>
-          ${scanning ? `<div class="launch-scan-strip"><span class="launch-scan-pulse"></span><span>${t('首次启动正在全盘搜索游戏本体…', 'First-launch full drive scan in progress…')}</span></div>` : ''}
-          <div class="launch-stage">
-            <div class="launch-stage-copy">
-              <span class="launch-stage-label">${t('当前选择', 'CURRENT SELECTION')}</span>
-              <strong>${active ? esc(active.title) : t('未选择游戏', 'No game selected')}</strong>
-              <small>${active ? esc(active.path || active.target) : t('检测后会在这里显示游戏本体位置', 'The detected game path will appear here')}</small>
+
+            <div class="home-metrics">
+              <div><small>DATA LINK</small><strong class="${telemetry.connected ? 'is-good' : ''}"><i></i>${telemetry.connected ? t('已连接', 'CONNECTED') : t('待连接', 'WAITING')}</strong></div>
+              <div><small>FLIGHT PLAN</small><strong>${nextFlight ? '1 ACTIVE' : '—'}</strong></div>
+              <div><small>HISTORY</small><strong>${allFlights.length} <em>legs</em></strong></div>
             </div>
-            <span class="launch-stage-badge">${active ? (active.source === 'steam' ? 'STEAM' : active.kind === 'appx' ? 'STORE' : 'LOCAL') : '—'}</span>
-          </div>
-          ${launchButton}
-          <div class="launch-game-list">${gameOptions || `<div class="launch-list-empty">${t('这个系列暂时没有可用条目。', 'No entries in this family yet.')}</div>`}</div>
-          <div class="launch-secondary-actions">
-            <button class="btn btn-secondary" type="button" data-launch-action="scan">${icon('scan', 15)}<span>${t('全盘搜索', 'Scan drives')}</span></button>
-            <button class="btn btn-secondary" type="button" data-launch-action="pick">${icon('folder', 15)}<span>${t('手动选择', 'Choose manually')}</span></button>
-            ${selectedFamilyCount ? `<span class="launch-found-note">${t(`本系列已发现 ${selectedFamilyCount} 个`, `${selectedFamilyCount} found in this family`)}</span>` : ''}
-          </div>
+
+            ${nextFlight ? `<div class="home-next">
+              <div class="home-next-head"><span>UP NEXT / ${t('待飞航段', 'NEXT SECTOR')}</span><b>${esc(statusText(nextFlight.status))}</b></div>
+              <div class="home-next-route"><code>${esc(airportCode(nextFlight.origin))}</code><span></span><code>${esc(airportCode(nextFlight.destination))}</code></div>
+              <div class="home-next-meta">${esc(flightCode(nextFlight))} <span>·</span> ${esc(nextFlight.aircraft?.name || nextFlight.aircraft?.icao || '—')} <span>·</span> ${esc(formatDuration(nextFlight.blockMinutes, 'compact'))}</div>
+            </div>` : ''}
+
+            <div class="home-preflight">
+              <div class="home-preflight-head"><span>PRE-FLIGHT CHECK</span><b>${telemetry.connected ? 'READY' : 'STANDBY'}</b></div>
+              <div class="home-preflight-row"><i>✓</i><span>${t('SimBrief 计划', 'SimBrief plan')}</span><em>${nextFlight ? esc(flightCode(nextFlight)) : t('未导入', 'not imported')}</em><strong>${nextFlight ? 'SYNCED' : '—'}</strong></div>
+              <div class="home-preflight-row"><i>✓</i><span>${t('自动安装遥测', 'Telemetry components')}</span><em>${this.app.settings.autoInstallBridges === false ? t('已关闭', 'disabled') : t('启动时检查', 'checked at launch')}</em><strong>${this.app.settings.autoInstallBridges === false ? 'OFF' : 'ON'}</strong></div>
+              <div class="home-preflight-row"><i>${telemetry.connected ? '✓' : '·'}</i><span>${t('SimConnect / UDP', 'SimConnect / UDP')}</span><em>${telemetry.connected ? t('已连接', 'connected') : t('等待游戏', 'waiting for sim')}</em><strong>${telemetry.connected ? 'LIVE' : 'WAIT'}</strong></div>
+            </div>
+
+            <div class="home-launch-actions">
+              <button class="home-launch-btn" type="button" data-home-action="launch">
+                <span class="home-play">${icon('play', 18)}</span>
+                <span><b>${t('启动模拟飞行', 'Launch simulator')}</b><small>LAUNCH ${esc(active.title).toUpperCase()}</small></span>
+                <span class="home-launch-arrow">↗</span>
+              </button>
+              <div class="home-quick-actions">
+                <button type="button" data-home-action="import">${icon('download', 13)} ${t('导入 SimBrief', 'Import SimBrief')}</button>
+                <button type="button" data-home-action="create">${icon('plus', 13)} ${t('新建计划', 'New plan')}</button>
+              </div>
+            </div>
+          ` : `<div class="home-game-empty">
+            <span class="home-empty-icon">${icon('gamepad', 28)}</span>
+            <h2>${t('尚未检测到模拟器', 'No simulator detected')}</h2>
+            <p>${t('扫描游戏本体后，即可从首页启动并自动连接飞行数据。', 'Scan for your simulator to launch it and connect live flight data from Home.')}</p>
+            <div class="home-empty-actions">
+              <button class="btn btn-primary" type="button" data-home-action="scan">${icon('scan', 14)} ${t('全盘搜索', 'Scan drives')}</button>
+              <button class="btn btn-secondary" type="button" data-home-action="pick">${icon('folder', 14)} ${t('手动选择', 'Choose manually')}</button>
+            </div>
+          </div>`}
         </section>
 
-        <aside class="panel knowledge-panel">
-          <div class="knowledge-head">
+        <section class="home-history-card">
+          <div class="home-history-head">
             <div>
-              <p class="eyebrow">AVIATION DESK</p>
-              <h2>${t('航空小课堂', 'Aviation desk')}</h2>
+              <div class="home-eyebrow">${icon('archive', 12)} FLIGHT ARCHIVE</div>
+              <h2>${t('历史航迹', 'Flight history')}</h2>
+              <p>${t('最近完成的航段，按落地时间排序', 'Recent completed sectors, newest first')}</p>
             </div>
-            <div class="knowledge-tabs">
-              <button class="${this.knowledgeTab === 'airlines' ? 'is-active' : ''}" type="button" data-knowledge-action="tab" data-tab="airlines">${t('航司', 'Airlines')}</button>
-              <button type="button" data-action="gallery">${t('飞机图库', 'Gallery')} ${icon('arrowRight', 12)}</button>
-            </div>
+            <button class="home-text-link" type="button" data-home-action="log">${t('查看全部', 'View all')} <span>↗</span></button>
           </div>
-          ${this.airlineHtml()}
-          ${this.factHtml()}
-        </aside>
-      </div>
-    </div>`;
-  }
 
-  airlineHtml() {
-    const lang = getLanguage();
-    const item = AIRLINES[this.airlineIndex % AIRLINES.length];
-    const name = lang === 'en' ? item.nameEn : item.name;
-    const note = lang === 'en' ? item.noteEn : item.note;
-    return `<div class="knowledge-feature">
-      <div class="knowledge-image-wrap is-airline">
-        <img src="${IMAGES[item.image]}" alt="${esc(name)}" />
-        <span class="knowledge-image-code">${esc(item.code)}</span>
-        <span class="knowledge-image-caption">${t('原创主题卡 · 非官方标识', 'Original theme card · not an official logo')}</span>
-      </div>
-      <div class="knowledge-feature-head">
-        <div><span class="knowledge-kicker">${esc(item.alliance)} · ${esc(item.hub)}</span><h3>${esc(name)}</h3></div>
-        <span class="knowledge-index">${String(this.airlineIndex + 1).padStart(2, '0')} / ${String(AIRLINES.length).padStart(2, '0')}</span>
-      </div>
-      <div class="knowledge-specs is-airline">
-        <div class="is-wide"><span>${t('枢纽', 'Hub')}</span><strong>${esc(item.hub)}</strong></div>
-        <div><span>${t('联盟', 'Alliance')}</span><strong>${esc(item.alliance)}</strong></div>
-        <div class="is-wide"><span>${t('常见机队', 'Typical fleet')}</span><strong>${esc(item.fleet)}</strong></div>
-      </div>
-      <p class="knowledge-note">${esc(note)}</p>
-      <div class="knowledge-cycle">
-        <button class="text-btn" type="button" data-knowledge-action="airline-prev">${icon('arrowLeft', 14)} ${t('上一家', 'Previous')}</button>
-        <div class="knowledge-dots">${AIRLINES.map((_, index) => `<i class="${index === this.airlineIndex ? 'is-active' : ''}"></i>`).join('')}</div>
-        <button class="text-btn" type="button" data-knowledge-action="airline-next">${t('下一家', 'Next')} ${icon('arrowRight', 14)}</button>
-      </div>
-    </div>`;
-  }
+          <div class="home-totals">
+            <div><small>${t('航段', 'SECTORS')} <em>ALL TIME</em></small><strong>${allFlights.length}<span>${t('段', 'legs')}</span></strong></div>
+            <div><small>${t('飞行时间', 'BLOCK TIME')} <em>LOGGED</em></small><strong>${Math.floor(totalMinutes / 60)}<span>h</span> ${String(totalMinutes % 60).padStart(2, '0')}<span>m</span></strong></div>
+            <div><small>${t('累计航程', 'DISTANCE')} <em>NM</em></small><strong>${Math.round(totalDistance).toLocaleString('en-US')}<span>nm</span></strong></div>
+          </div>
 
-  factHtml() {
-    const lang = getLanguage();
-    const fact = FACTS[this.factIndex % FACTS.length];
-    return `<div class="knowledge-fact">
-      <span class="knowledge-fact-icon">${icon('sparkles', 16)}</span>
-      <div><small>${t('飞行小知识', 'AVIATION NOTE')}</small><p>${esc(lang === 'en' ? fact.en : fact.zh)}</p></div>
-      <button class="icon-btn" type="button" data-knowledge-action="fact-next" aria-label="${t('换一条', 'Next fact')}">${icon('refresh', 14)}</button>
+          <div class="home-list-head"><span>DATE</span><span>FLIGHT / AIRCRAFT</span><span>ROUTE</span><span>BLOCK</span><span>DIST</span><span>STATUS</span><span></span></div>
+          <div class="home-flight-list">
+            ${flights.length ? flights.map((flight) => {
+              const status = flight.status === 'flown' ? '已完成' : statusText(flight.status);
+              return `<button class="home-flight-row" type="button" data-flight-id="${esc(flight.id)}">
+                <span class="home-flight-date">${esc(dateLabel(flight))}<small>${yearLabel(flight)}</small></span>
+                <span class="home-flight-ident"><b>${esc(flightCode(flight))}</b><small>${esc(flight.aircraft?.name || flight.aircraft?.icao || '—')}</small></span>
+                <span class="home-flight-route"><code>${esc(airportCode(flight.origin))}</code><i></i><em></em><i></i><code>${esc(airportCode(flight.destination))}</code></span>
+                <span class="home-flight-block">${esc(formatDuration(flight.blockMinutes, 'compact'))}</span>
+                <span class="home-flight-dist">${esc(formatDistance(flight.distanceNm, 'nm'))}</span>
+                <span class="home-flight-status ${statusClass(flight.status)}"><i></i>${esc(status)}</span>
+                <span class="home-flight-arrow">›</span>
+              </button>`;
+            }).join('') : `<div class="home-empty-history">
+              <span>${icon('archive', 22)}</span>
+              <strong>${t('还没有历史航段', 'No flight history yet')}</strong>
+              <p>${t('导入第一份 SimBrief 计划，开始留下航迹。', 'Import your first SimBrief plan to start a track.')}</p>
+              <button class="btn btn-secondary" type="button" data-home-action="import">${icon('plus', 14)} ${t('导入计划', 'Import a plan')}</button>
+            </div>`}
+          </div>
+
+          <div class="home-history-foot"><span><i></i> ${t('数据保存在本机，不与云端同步', 'Stored locally, never synced to the cloud')}</span><b>${allFlights.length} SECTORS · SKYLOG 1.3.0</b></div>
+        </section>
+      </div>
     </div>`;
   }
 
@@ -222,42 +233,26 @@ export class LaunchPage {
     if (this.bound) return;
     this.bound = true;
     this.root.addEventListener('click', async (event) => {
-      const launchAction = event.target.closest('[data-launch-action]')?.dataset.launchAction;
-      if (launchAction) {
-        if (launchAction === 'family') {
-          this.familyPinned = true;
-          this.selectedFamily = event.target.closest('[data-family]')?.dataset.family || this.selectedFamily;
-          this.update();
-        } else if (launchAction === 'select') {
-          const button = event.target.closest('[data-game-index]');
-          const games = this.familyGames(this.selectedFamily);
-          const game = games[Number(button?.dataset.gameIndex)];
-          if (game) {
-            this.familyPinned = true;
-            await this.app.updateSettings({ game });
-          }
-        } else if (launchAction === 'launch') {
-          await this.app.launchGame(this.activeGame());
-        } else if (launchAction === 'scan') {
-          await this.app.scanAllGames({ force: true });
-        } else if (launchAction === 'pick') {
-          await this.app.pickGame();
-          this.update();
-        }
+      const familyButton = event.target.closest('[data-home-family]');
+      if (familyButton) {
+        this.familyPinned = true;
+        this.selectedFamily = familyButton.dataset.homeFamily;
+        this.update();
         return;
       }
-      const knowledgeAction = event.target.closest('[data-knowledge-action]')?.dataset.knowledgeAction;
-      if (!knowledgeAction) return;
-      if (knowledgeAction === 'tab') {
-        this.knowledgeTab = event.target.closest('[data-tab]')?.dataset.tab || 'airlines';
-      } else if (knowledgeAction === 'airline-prev') {
-        this.airlineIndex = (this.airlineIndex - 1 + AIRLINES.length) % AIRLINES.length;
-      } else if (knowledgeAction === 'airline-next') {
-        this.airlineIndex = (this.airlineIndex + 1) % AIRLINES.length;
-      } else if (knowledgeAction === 'fact-next') {
-        this.factIndex = (this.factIndex + 1) % FACTS.length;
+      const flightButton = event.target.closest('[data-flight-id]');
+      if (flightButton) {
+        this.app.openFlightDetail(flightButton.dataset.flightId);
+        return;
       }
-      this.update();
+      const action = event.target.closest('[data-home-action]')?.dataset.homeAction;
+      if (!action) return;
+      if (action === 'launch') await this.app.launchGame(this.activeGame());
+      else if (action === 'import') this.app.openImport();
+      else if (action === 'create') this.app.openCreate();
+      else if (action === 'log') this.app.navigate('log');
+      else if (action === 'scan') await this.app.scanAllGames({ force: true });
+      else if (action === 'pick') await this.app.pickGame();
     });
   }
 }

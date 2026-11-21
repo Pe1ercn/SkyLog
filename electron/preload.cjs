@@ -39,6 +39,15 @@ contextBridge.exposeInMainWorld('skylog', {
   stopTelemetry: () => invoke('telemetry:stop'),
   saveTelemetry: (payload) => invoke('telemetry:save', payload),
   getTelemetryDiagnostics: () => invoke('telemetry:diagnostics'),
+  installComponents: () => invoke('components:install'),
+  quitApp: () => invoke('app:quit'),
+  requestClose: () => invoke('window:request-close'),
+  respondClose: (payload) => invoke('window:close-response', payload),
+  onCloseRequest: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('window:close-request', listener);
+    return () => ipcRenderer.removeListener('window:close-request', listener);
+  },
   onTelemetryStatus: (callback) => {
     const listener = (_event, data) => callback(data);
     ipcRenderer.on('telemetry:status', listener);

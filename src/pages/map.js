@@ -63,8 +63,8 @@ export class MapPage {
           <button class="map-control" type="button" data-map-action="fit" aria-label="适应航路">${icon('crosshair', 18)}</button>
         </div>
         <div class="map-legend" id="map-legend"></div>
-        <div class="live-telemetry" id="live-telemetry"></div>
       </div>
+      <div class="telemetry-dock" id="live-telemetry"></div>
     </div>`;
     this.stageEl = this.root.querySelector('#map-stage');
     this.panelEl = this.root.querySelector('#map-panel');
@@ -160,9 +160,9 @@ export class MapPage {
       interactive: false,
       smoothFactor: 1,
       style: {
-        color: '#d6e3f2',
+        color: '#2c5a6c',
         weight: 0.65,
-        fillColor: '#fbfdff',
+        fillColor: '#0a2231',
         fillOpacity: 1,
       },
     }).addTo(this.map);
@@ -177,7 +177,7 @@ export class MapPage {
           ],
           {
             pane: 'sky-graticule',
-            color: '#c4d6ea',
+            color: '#245368',
             weight: 0.55,
             opacity: 0.62,
             interactive: false,
@@ -195,7 +195,7 @@ export class MapPage {
           ],
           {
             pane: 'sky-graticule',
-            color: '#c4d6ea',
+            color: '#245368',
             weight: 0.5,
             opacity: 0.42,
             interactive: false,
@@ -354,62 +354,92 @@ export class MapPage {
     return t(pair[0], pair[1]);
   }
 
-  sparkline(samples, key, color, label, unit, digits = 0) {
-    const values = samples.map((sample) => Number(sample[key]) || 0);
-    if (!values.length) return '';
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const span = max - min || 1;
-    const width = 220;
-    const height = 48;
-    const points = values.map((value, index) => {
-      const x = values.length === 1 ? width : (index / (values.length - 1)) * width;
-      const y = height - ((value - min) / span) * (height - 8) - 4;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-    const last = values.at(-1);
-    return `<div class="live-chart">
-      <div class="live-chart-head"><span>${esc(label)}</span><strong>${last.toFixed(digits)} <em>${esc(unit)}</em></strong></div>
-      <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M0 ${height - 4}H${width}" stroke="rgba(30,60,95,.1)" stroke-dasharray="3 5"/>
-        <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </div>`;
+  telemetrySeries(samples) {
+    return [
+      { key: 'altitudeFt', label: t('高度', 'Altitude'), unit: 'ft', color: '#67def0' },
+      { key: 'speedKt', label: t('速度', 'Speed'), unit: 'kt', color: '#efbd78' },
+      { key: 'headingDeg', label: t('航向', 'Heading'), unit: '°', color: '#b9a0ff' },
+    ].map((series) => {
+      const values = samples.map((sample) => Number(sample[series.key]) || 0);
+      const min = values.length ? Math.min(...values) : 0;
+      const max = values.length ? Math.max(...values) : 0;
+      return { ...series, values, min, max, last: values.at(-1) || 0 };
+    });
+  }
+
+  telemetrySvg(series, sampleCount) {
+    const width = 1000;
+    const laneHeight = 38;
+    const height = laneHeight * series.length;
+    const verticalGrid = Array.from({ length: 9 }, (_, index) => {
+      const x = (index / 8) * width;
+      return `<line x1="${x}" y1="0" x2="${x}" y2="${height}" stroke="rgba(142,198,218,.07)" stroke-width="1"/>`;
+    }).join('');
+    const lanes = series.map((item, laneIndex) => {
+      const top = laneIndex * laneHeight + 5;
+      const usable = laneHeight - 12;
+      const span = item.max - item.min || 1;
+      const points = item.values.length > 1
+        ? item.values.map((value, index) => {
+          const x = (index / (item.values.length - 1)) * width;
+          const y = top + usable - ((value - item.min) / span) * usable;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ')
+        : `0,${(top + usable / 2).toFixed(1)} ${width},${(top + usable / 2).toFixed(1)}`;
+      const area = `${points} ${width},${top + usable} 0,${top + usable}`;
+      return `<g>
+        <line x1="0" y1="${laneIndex * laneHeight}" x2="${width}" y2="${laneIndex * laneHeight}" stroke="rgba(142,198,218,.10)" stroke-width="1"/>
+        <polygon points="${area}" fill="${item.color}" opacity=".055"/>
+        <polyline points="${points}" fill="none" stroke="${item.color}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>
+      </g>`;
+    }).join('');
+    const empty = !sampleCount;
+    return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
+      ${verticalGrid}${lanes}
+      ${empty ? `<text x="${width / 2}" y="${height / 2 + 4}" text-anchor="middle" fill="rgba(120,148,164,.55)" font-size="10" font-family="monospace">WAITING FOR TELEMETRY</text>` : ''}
+    </svg>`;
   }
 
   renderLiveTelemetry() {
     if (!this.liveEl) return;
     const live = this.app.liveTelemetry;
-    if (!live || (!live.active && !live.samples?.length)) {
-      this.liveEl.innerHTML = '';
-      this.liveEl.hidden = true;
-      return;
-    }
-    this.liveEl.hidden = false;
-    const samples = live.samples || [];
-    const last = live.lastSample || samples.at(-1);
+    const samples = (live?.samples || []).slice(-900);
+    const last = live?.lastSample || samples.at(-1);
     const phase = this.phaseOf(last);
-    const visible = samples.slice(-180);
-    const speed = Number(last?.speedKt) || 0;
-    const altitude = Number(last?.altitudeFt) || 0;
-    const heading = Number(last?.headingDeg) || 0;
-    this.liveEl.innerHTML = `<div class="live-card">
-      <div class="live-card-head">
-        <span class="live-pulse ${live.active ? 'is-live' : ''}"></span>
-        <span class="live-kicker">${live.active ? t('实时飞行数据', 'LIVE FLIGHT DATA') : t('已结束 · 飞行数据', 'FLIGHT DATA · RECORDED')}</span>
-        <span class="live-phase">${this.phaseLabel(phase)}</span>
-        ${live.active ? `<button class="text-btn live-stop" type="button" data-live-action="stop">${icon('stop', 13)} ${t('结束记录', 'End')}</button>` : ''}
+    const series = this.telemetrySeries(samples);
+    const active = Boolean(live?.active);
+    const hasData = samples.length > 0;
+    const duration = samples.length > 1
+      ? Math.max(0, Math.round((Number(samples.at(-1).timestamp) - Number(samples[0].timestamp)) / 60000))
+      : 0;
+    this.liveEl.hidden = false;
+    this.liveEl.innerHTML = `<div class="telemetry-strip ${active ? 'is-live' : ''}">
+      <div class="telemetry-strip-head">
+        <div class="telemetry-strip-title">
+          <span class="live-pulse ${active ? 'is-live' : ''}"></span>
+          <strong>${live ? (active ? t('实时飞行数据', 'LIVE FLIGHT DATA') : t('已结束 · 飞行数据', 'FLIGHT DATA · RECORDED')) : t('航路遥测', 'ROUTE TELEMETRY')}</strong>
+          <small>${samples.length ? `${samples.length} SAMPLES · ${duration} MIN · ${this.phaseLabel(phase)}` : t('高度 / 速度 / 航向', 'ALT / SPEED / HEADING')}</small>
+        </div>
+        <div class="telemetry-strip-actions">
+          ${hasData ? `<span class="telemetry-source">${esc(live?.source || 'SIMCONNECT')}</span>` : ''}
+          ${active ? `<button class="text-btn live-stop" type="button" data-live-action="stop">${icon('stop', 12)} ${t('结束并保存', 'End & save')}</button>` : ''}
+        </div>
       </div>
-      ${last ? `<div class="live-stats">
-        <div><span>${t('速度', 'SPEED')}</span><strong>${Math.round(speed)}<em>kt</em></strong></div>
-        <div><span>${t('高度', 'ALT')}</span><strong>${Math.round(altitude).toLocaleString('en-US')}<em>ft</em></strong></div>
-        <div><span>${t('航向', 'HDG')}</span><strong>${Math.round(heading).toString().padStart(3, '0')}<em>°</em></strong></div>
+      <div class="telemetry-strip-body">
+        <div class="telemetry-legend">
+          ${series.map((item) => `<div class="telemetry-legend-row">
+            <i style="--line-color:${item.color}"></i>
+            <span>${item.label}</span>
+            <strong>${hasData ? item.last.toFixed(0) : '—'} <em>${item.unit}</em></strong>
+            <small>${hasData && item.max !== item.min ? `${item.min.toFixed(0)}–${item.max.toFixed(0)}` : '—'}</small>
+          </div>`).join('')}
+        </div>
+        <div class="telemetry-chart">
+          ${this.telemetrySvg(series, samples.length)}
+          <div class="telemetry-chart-axis"><span>${hasData ? 'T−' + Math.max(1, duration) + 'm' : ''}</span><span>${hasData ? 'NOW' : ''}</span></div>
+        </div>
       </div>
-      <div class="live-charts">
-        ${this.sparkline(visible, 'speedKt', 'var(--primary)', t('速度', 'Speed'), 'kt')}
-        ${this.sparkline(visible, 'altitudeFt', 'var(--theme-accent, #72a6ff)', t('高度', 'Altitude'), 'ft')}
-        ${this.sparkline(visible, 'headingDeg', '#e2a13a', t('航向', 'Heading'), '°')}
-      </div>` : `<div class="live-waiting">${live.active ? t('等待游戏内遥测数据…', 'Waiting for in-game telemetry…') : t('没有采样点', 'No samples')}</div>`}
+      ${!hasData ? `<div class="telemetry-empty-hint">${icon('gauge', 13)} ${t('在航段面板点击「读取飞行数据」后，这里会绘制高度、速度与航向长条图。', 'Start flight data from the leg panel to draw altitude, speed and heading here.')}</div>` : ''}
     </div>`;
   }
 

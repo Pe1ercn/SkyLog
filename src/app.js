@@ -7,7 +7,6 @@ import {
 } from './ui/components.js';
 import { HomePage } from './pages/home.js';
 import { LaunchPage } from './pages/launch.js';
-import { GalleryPage } from './pages/gallery.js';
 import { MapPage } from './pages/map.js';
 import { LogPage } from './pages/log.js';
 import { DownloadsPage } from './pages/downloads.js';
@@ -18,6 +17,9 @@ import { openCreateSimbrief } from './ui/create-simbrief.js';
 import { openFlightDetail } from './ui/flight-detail.js';
 import { openAirportDetail } from './ui/airport-detail.js';
 import { openAppreciation } from './ui/appreciation.js';
+import { openLegal } from './ui/legal.js';
+import { LEGAL_VERSION } from './data/legal.js';
+import { openClosePrompt } from './ui/close-confirm.js';
 import { openFlightTrackingPrompt } from './ui/flight-tracking.js';
 import { esc, formatDuration } from './lib/format.js';
 import {
@@ -33,24 +35,22 @@ import {
   themeBackgroundUri,
 } from './lib/themes.js';
 
-const ROUTES = ['home', 'gallery', 'details', 'map', 'log', 'downloads', 'toolbox', 'settings'];
+const ROUTES = ['home', 'details', 'map', 'log', 'downloads', 'toolbox', 'settings'];
 const NAV_ITEMS = [
   { route: 'home', label: '首页', titleEn: 'Home', icon: 'home' },
-  { route: 'gallery', label: '飞机图库', titleEn: 'Gallery', icon: 'image' },
-  { route: 'details', label: '详情', titleEn: 'Details', icon: 'file' },
-  { route: 'map', label: '飞行地图', titleEn: 'World Map', icon: 'map' },
+  { route: 'details', label: '航段详情', titleEn: 'Details', icon: 'file' },
+  { route: 'map', label: '航路地图', titleEn: 'World Map', icon: 'map' },
   { route: 'log', label: '飞行日志', titleEn: 'Flight Log', icon: 'book', count: true },
-  { route: 'downloads', label: '下载', titleEn: 'Downloads', icon: 'download' },
+  { route: 'downloads', label: '下载中心', titleEn: 'Downloads', icon: 'download' },
   { route: 'toolbox', label: '工具箱', titleEn: 'Toolbox', icon: 'toolbox' },
   { route: 'settings', label: '设置', titleEn: 'Settings', icon: 'settings' },
 ];
 const PAGE_META = {
-  home: { title: '首页', subtitle: '选择模拟器，准备起飞。', titleEn: 'Home' },
-  gallery: { title: '飞机图库', subtitle: '真实航空摄影，独立收藏', titleEn: 'Gallery' },
-  details: { title: '详情', subtitle: '把每一次起飞，都留在地图上。', titleEn: 'Details' },
-  map: { title: '飞行地图', subtitle: '航路、机场与航点', titleEn: 'World Map' },
+  home: { title: '首页', subtitle: '启动模拟器，继续你的航迹。', titleEn: 'Home' },
+  details: { title: '航段详情', subtitle: '把每一次起飞，都留在地图上。', titleEn: 'Details' },
+  map: { title: '航路地图', subtitle: '航路、机场与实时遥测', titleEn: 'World Map' },
   log: { title: '飞行日志', subtitle: '一次游戏，一段旅程', titleEn: 'Flight Log' },
-  downloads: { title: '下载', subtitle: '机模、插件与社区安装', titleEn: 'Downloads' },
+  downloads: { title: '下载中心', subtitle: '机模、插件与社区安装', titleEn: 'Downloads' },
   toolbox: { title: '工具箱', subtitle: '主题、背景与个性设置', titleEn: 'Toolbox' },
   settings: { title: '设置', subtitle: '让 SkyLog 更像你的日志', titleEn: 'Settings' },
 };
@@ -77,6 +77,7 @@ export class App {
     this.gamesScanInfo = null;
     this.gamesScanStarted = false;
     this.routeTimer = null;
+    this.routeSequence = 0;
     this.theme = getTheme('default');
     this.shellReady = false;
     this.downloads = new Map();
@@ -91,6 +92,7 @@ export class App {
     };
     this.telemetryUnsubscribe = null;
     this.telemetryStatusUnsubscribe = null;
+    this.closeUnsubscribe = null;
     this.telemetryStatus = {
       msfs: { state: 'idle', connected: false },
       xplane: { state: 'idle', connected: false },
@@ -112,6 +114,7 @@ export class App {
       ]);
       this.library = libraryResult.library;
       this.appInfo = appInfo;
+      document.body.classList.add('cockpit-theme');
       setLanguage(this.library.settings?.language || 'zh');
       startTranslationObserver();
       this.syncPlatformClass();
@@ -129,7 +132,9 @@ export class App {
       window.addEventListener('hashchange', () => this.showRoute(this.routeFromHash()));
       this.bindGlobalEvents();
       this.bindShortcuts();
-      if (!this.settings.appreciationSeen) {
+      if (!this.settings.legalAccepted || this.settings.legalVersion !== LEGAL_VERSION) {
+        setTimeout(() => openLegal(this, { firstRun: true }), 450);
+      } else if (!this.settings.appreciationSeen) {
         setTimeout(() => openAppreciation(this, { firstRun: true }), 900);
       }
     } catch (error) {
@@ -165,20 +170,8 @@ export class App {
         </header>
         <aside class="sidebar" id="sidebar">
           <div class="sidebar-top">
+            <div class="sidebar-label">WORKSPACE</div>
             <nav class="nav-list" id="nav-list" aria-label="主导航"></nav>
-            <div class="sidebar-section">
-              <div class="sidebar-label">快速操作</div>
-              <button class="sidebar-action" type="button" data-action="quick-import">
-                <span class="sidebar-action-icon">${icon('plus', 16)}</span>
-                <span>导入 SimBrief</span>
-                <kbd>Ctrl I</kbd>
-              </button>
-              <div id="game-card"></div>
-              <button class="sidebar-action" type="button" data-action="create-simbrief">
-                <span class="sidebar-action-icon">${icon('sparkles', 16)}</span>
-                <span>创建计划</span>
-              </button>
-            </div>
           </div>
           <div class="sidebar-bottom">
             <div id="pilot-card"></div>
@@ -217,7 +210,7 @@ export class App {
       const iconName = navIconFor(theme, item.route) || item.icon;
       const label = getLanguage() === 'en' ? item.titleEn : item.label;
       const count = item.count ? '<span class="nav-count" id="nav-count"></span>' : '';
-      return `<button class="nav-item" type="button" data-route="${item.route}">${icon(iconName, 19)}<span>${label}</span>${count}</button>`;
+      return `<button class="nav-item" type="button" data-route="${item.route}" title="${label}">${icon(iconName, 19)}<span class="nav-label">${label}</span>${count}</button>`;
     }).join('');
     this.syncNavActive();
   }
@@ -269,8 +262,6 @@ export class App {
           this.scanAllGames({ force: true });
         } else if (actionButton.dataset.action === 'create-simbrief') {
           this.openCreate();
-        } else if (actionButton.dataset.action === 'gallery') {
-          this.navigate('gallery');
         } else if (actionButton.dataset.action === 'appreciation') {
           openAppreciation(this);
         } else if (actionButton.dataset.action === 'downloads-fab') {
@@ -291,6 +282,9 @@ export class App {
     }
     if (window.skylog?.onDownloadUpdate) {
       this.downloadUnsubscribe = window.skylog.onDownloadUpdate((task) => this.handleDownloadUpdate(task));
+    }
+    if (api.onCloseRequest) {
+      this.closeUnsubscribe = api.onCloseRequest((data) => openClosePrompt(this, data || {}));
     }
     api.listDownloads?.().then((result) => {
       for (const task of result.tasks || []) this.downloads.set(task.id, task);
@@ -457,9 +451,6 @@ export class App {
         { type: 'success', title: '飞行数据已连接' },
       );
     }
-    if (status.state === 'error' && previous.state !== 'error') {
-      toast(status.message || '飞行数据连接失败', { type: 'info', title: status.family === 'msfs' ? 'MSFS 连接' : 'X-Plane 连接' });
-    }
     this.pages.get('map')?.renderLiveTelemetry?.();
     const settingsPage = this.pages.get('settings');
     if (settingsPage) {
@@ -584,7 +575,7 @@ export class App {
         event.preventDefault();
         this.openImport();
       }
-      if ((event.ctrlKey || event.metaKey) && ['1', '2', '3', '4', '5', '6', '7', '8'].includes(event.key)) {
+      if ((event.ctrlKey || event.metaKey) && ['1', '2', '3', '4', '5', '6', '7'].includes(event.key)) {
         event.preventDefault();
         this.navigate(ROUTES[Number(event.key) - 1]);
       }
@@ -636,39 +627,37 @@ export class App {
       this.pages.get(target)?.show?.();
       return;
     }
-    const go = () => {
-      if (location.hash !== `#/${target}`) {
-        location.hash = `#/${target}`;
-      } else {
-        this.showRoute(target);
-      }
-    };
-    if (options.origin && this.canAnimateRoute()) {
-      clearTimeout(this.routeTimer);
-      this.playRouteRipple(options.origin);
-      this.routeTimer = setTimeout(go, 420);
-    } else {
-      go();
-    }
+    if (location.hash !== `#/${target}`) location.hash = `#/${target}`;
+    else this.showRoute(target);
   }
 
   showRoute(route) {
     if (!this.library) return;
     const target = ROUTES.includes(route) ? route : 'home';
-    this.currentRoute = target;
-    document.body.dataset.route = target;
-    this.syncSidebar();
-    this.pages.forEach((page, key) => {
-      page.root.classList.toggle('is-active', key === target);
-    });
-    if (!this.pages.has(target)) {
-      this.createPage(target);
+    const sequence = ++this.routeSequence;
+    const previous = this.pages.get(this.currentRoute);
+    const apply = () => {
+      if (sequence !== this.routeSequence) return;
+      this.currentRoute = target;
+      document.body.dataset.route = target;
+      this.syncSidebar();
+      this.pages.forEach((page, key) => {
+        page.root.classList.remove('is-leaving');
+        page.root.classList.toggle('is-active', key === target);
+      });
+      if (!this.pages.has(target)) this.createPage(target);
+      const page = this.pages.get(target);
+      page.root.classList.add('is-active');
+      page.show?.();
+      this.updateDocumentTitle();
+      applyTranslations();
+    };
+    if (previous && this.currentRoute !== target && this.library.settings?.animations !== false) {
+      previous.root.classList.add('is-leaving');
+      setTimeout(apply, 150);
+    } else {
+      apply();
     }
-    const page = this.pages.get(target);
-    page.root.classList.add('is-active');
-    page.show?.();
-    this.updateDocumentTitle();
-    applyTranslations();
   }
 
   updateDocumentTitle() {
@@ -689,7 +678,6 @@ export class App {
     if (route === 'home') page = new LaunchPage(this, root);
     else if (route === 'details') page = new HomePage(this, root);
     else if (route === 'map') page = new MapPage(this, root);
-    else if (route === 'gallery') page = new GalleryPage(this, root);
     else if (route === 'log') page = new LogPage(this, root);
     else if (route === 'downloads') page = new DownloadsPage(this, root);
     else if (route === 'toolbox') page = new ToolboxPage(this, root);
@@ -858,6 +846,9 @@ export class App {
       return false;
     }
     try {
+      if (target.family === 'msfs' || target.family === 'xplane') {
+        api.startTelemetry({ family: target.family, game: target }).catch(() => {});
+      }
       await api.launchGame(target);
       toast(`正在启动 ${target.title}`, { type: 'success', title: '游戏启动' });
       return true;

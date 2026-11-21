@@ -40,6 +40,14 @@ const DEFAULT_SETTINGS = {
   communityFolders: { xplane: '', msfs: '' },
   downloadPath: '',
   appreciationSeen: false,
+  legalAccepted: false,
+  legalVersion: '',
+  legalAcceptedAt: '',
+  closeAction: 'ask',
+  closePrompt: true,
+  autoInstallBridges: true,
+  trayLaunchOnGame: true,
+  bridgesInstalledAt: '',
   theme: 'default',
   themeUnlocks: ['default'],
   backgroundImage: '',
@@ -66,6 +74,7 @@ const SETTING_VALUES = {
   labelMode: ['both', 'codes', 'name'],
   routeMode: ['waypoints', 'direct'],
   logSort: ['newest', 'oldest'],
+  closeAction: ['ask', 'quit', 'tray'],
   theme: THEME_IDS,
 };
 
@@ -849,9 +858,14 @@ export class LibraryStore {
         next[key] = patch[key];
       }
     }
-    for (const key of ['showWaypoints', 'showAlternates', 'showAllFlights', 'highlightAllRoutes', 'animations', 'gameScanDone', 'appreciationSeen']) {
+    for (const key of ['showWaypoints', 'showAlternates', 'showAllFlights', 'highlightAllRoutes', 'animations', 'gameScanDone', 'appreciationSeen', 'legalAccepted', 'closePrompt', 'autoInstallBridges', 'trayLaunchOnGame']) {
       if (Object.prototype.hasOwnProperty.call(patch, key)) {
         next[key] = Boolean(patch[key]);
+      }
+    }
+    for (const key of ['legalVersion', 'legalAcceptedAt', 'bridgesInstalledAt']) {
+      if (Object.prototype.hasOwnProperty.call(patch, key)) {
+        next[key] = String(patch[key] || '').slice(0, 80);
       }
     }
     if (Object.prototype.hasOwnProperty.call(patch, 'communityFolders')) {

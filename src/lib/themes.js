@@ -14,7 +14,6 @@ export const THEME_CODES = {
 
 function nav(icons) {
   return {
-    gallery: 'image',
     details: 'file',
     map: 'map',
     log: 'book',

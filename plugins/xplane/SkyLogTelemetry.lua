@@ -1,11 +1,25 @@
 -- SkyLog Telemetry Bridge for X-Plane 11/12
 -- Requires FlyWithLua. Install this file in:
 --   <X-Plane>/Resources/plugins/FlyWithLua/Scripts/
--- It writes one JSON sample every ~350 ms. SkyLog watches this file while
--- "读取飞行数据" is active.
+-- It writes one JSON sample every ~350 ms and launches SkyLog once when the
+-- simulator loads. SkyLog watches this file while flight data is active.
 
 local INTERVAL = 0.35
 local last_write = 0
+local APP_PATH = [[__SKYLOG_APP__]]
+local app_launched = false
+
+local function skylog_launch_app()
+    if app_launched or APP_PATH == "" then
+        return
+    end
+    app_launched = true
+    pcall(function()
+        os.execute('start "" "' .. APP_PATH .. '"')
+    end)
+end
+
+skylog_launch_app()
 
 function skylog_write_telemetry()
     if os.clock() - last_write < INTERVAL then

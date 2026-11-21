@@ -2,19 +2,17 @@
 
 > 把每一次起飞，都留在地图上。
 
-SkyLog 航迹是一款面向微软模拟飞行与 X-Plane 玩家的桌面飞行计划与飞行日志工具。它从 SimBrief 读取 OFP，把航班号、起降机场、巡航高度、航路、机型和性能数据整理成可回看的记录，并在内置世界地图上画出完整航迹。v1.2.1 提供 Windows 安装包与 macOS 应用包，修复 MSFS 实时数据抓取，并加入独立飞机图库、X-Plane UDP 遥测、下载中心和赞赏入口。
+SkyLog 航迹是一款面向微软模拟飞行与 X-Plane 玩家的桌面飞行计划与飞行日志工具。它从 SimBrief 读取 OFP，把航班号、起降机场、巡航高度、航路、机型和性能数据整理成可回看的记录，并在内置世界地图上画出完整航迹。v1.3.0 提供全新的深色航电 UI、可折叠侧栏、自动组件安装与游戏唤起、全宽遥测长条图，以及关闭到托盘、使用协议与免责声明。
 
 模拟飞行玩家通常在 SimBrief 生成计划，但计划容易散落在网页、PDF 和截图里；同一次游戏里的多个起降也不容易归档。SkyLog 想解决三件事：**计划读得进来、航线看得清楚、飞行记得下来。**
 
 ## English overview
 
-SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulator and X-Plane. It reads your latest SimBrief OFP, draws the route and waypoints on an offline world map, and keeps every leg grouped into a game session. Version 1.2.1 fixes live MSFS capture with native SimConnect, adds X-Plane UDP telemetry and a separate NASA public-domain aircraft gallery, and keeps the Community-aware download centre, URL downloads with a floating progress button, and the first-run appreciation dialog.
+SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulator and X-Plane. It reads your latest SimBrief OFP, draws the route and waypoints on an offline world map, and keeps every leg grouped into a game session. Version 1.3.0 adds a dark cockpit UI, hover-expanding icon rail, 150 ms page fades, automatic simulator component installation and launch, a full-width telemetry strip, tray close behaviour, and in-app terms/disclaimer.
 
 ## 界面
 
 ![SkyLog 概览](docs/screenshots/home.png)
-
-![SkyLog 飞机图库](docs/screenshots/gallery.png)
 
 ![SkyLog 飞行地图](docs/screenshots/map.png)
 
@@ -65,22 +63,26 @@ SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulat
 - 支持重量、距离、高度、时间显示单位和地图标签的偏好设置。
 - 日志损坏时会自动尝试从备份恢复。
 
-### 独立飞机图库与首页解耦（v1.2.1）
+### 新首页与折叠侧栏（v1.3.0）
 
-- 首页「航空小课堂」只保留航空公司主题卡与航空小知识，不再展示飞机照片、注册号或机型参数，避免照片和介绍被绑在一起。
-- 菜单栏新增独立的「飞机图库」，使用 **NASA Image and Video Library** 的公共领域航空摄影；只展示画面，不标注具体机型、注册号或性能参数。
-- 图片来源、NASA ID、摄影与公共领域说明见 [docs/aviation-photo-credits.md](docs/aviation-photo-credits.md)。
-- 图库支持点击查看大图和来源信息；旧版 Unsplash 机型卡片图片已移除。
+- 首页改为深色飞行工作台：左侧是游戏启动卡，右侧是历史航迹列表；**首页不显示地图**。
+- 左侧菜单默认只显示图标（78px），鼠标移入后向右展开为文字导航（252px）。
+- 页面切换改为 **150ms 淡入淡出**，不再使用圆形扩散转场。
+- 首页保留历史航段的航班号、机型、起降机场、轮挡时间、距离与状态，可点击进入航段详情。
 
-### 飞行数据遥测（v1.2.1）
+### 飞行数据遥测（v1.3.0）
 
-- 导入 SimBrief 计划后询问「这段航程已经飞了吗？」：已飞可直接标记；未飞则询问是否读取飞行数据。
-- **Microsoft Flight Simulator 2020/2024**：SkyLog 通过内置的 **SimConnect** 直接读取飞行数据，不再依赖 Community HTML 面板或工具栏图标。进入游戏后启动 SkyLog 即可自动连接，也可以在地图航段面板点「读取飞行数据」。
-- **X-Plane 11/12**：优先使用内置 **UDP RREF** 读取数据，默认端口 `49000`；如果未启用 UDP，可选用 FlyWithLua 脚本作为备用方案。
-- 数据桥接只监听本机 `127.0.0.1:42831`，读取纬度、经度、高度、空速、航向、垂直速度和地面状态；不会上传到互联网。
-- 飞行中地图显示移动飞机、状态气泡（滑行 / 起飞 / 爬升 / 巡航 / 下降 / 降落）和蓝色轨迹；右下角显示速度、高度、航向三张折线图。
-- 结束记录后把采样点保存到本机 `telemetry/<flightId>.json`，地图保留轨迹与图表，可滚动回看。
-- 设置 → 飞行数据连接可以查看 MSFS SimConnect、X-Plane UDP、FlyWithLua 与本机数据端口状态。
+- **微软模拟飞行 2020/2024**：通过 SimConnect 直接读取；应用启动时自动安装/修复组件，并在 MSFS 用户目录写入 `exe.xml`，模拟器启动时自动唤起 SkyLog。随后 SimConnect 自动连接并记录。
+- **X-Plane 11/12**：优先使用 UDP RREF，默认端口 `49000`；如果安装 FlyWithLua，则会自动复制可启动 SkyLog 的桥接脚本。
+- 地图下方新增 **全宽长条遥测图**：高度（青）、速度（琥珀）、航向（紫）分三条轨道显示，随采样实时更新；支持实时与已保存数据。
+- 数据桥接只监听本机 `127.0.0.1:42831`，不会上传互联网。
+- 设置 → 飞行数据连接可查看状态、重新检测和“安装 / 修复组件”。
+
+### 关闭、托盘与协议（v1.3.0）
+
+- 关闭窗口时弹窗选择 **直接退出** 或 **收进系统托盘**；勾选“保存我的选择”后以后不再询问。设置中可修改默认行为与询问开关。
+- 首次启动阅读并同意 **《用户使用协议》** 与 **《免责声明》** 后才能进入；不同意会退出应用。两份文档可在设置中随时重读。
+- 设置 → 我的赞赏码展示赞赏图片，并带“感谢分享 / 感谢开发 / 感谢每一次起飞”的横向流动文字。
 
 ### 下载中心（v1.2.0）
 
@@ -91,19 +93,20 @@ SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulat
 - 支持安装程序（`.exe`、`.msi`、`.dmg`、`.pkg`）直接打开；ZIP / 7Z 资源安装到已选择的社区目录。
 - 工具箱新增 URL 下载：输入下载地址，自动识别文件名，保存目标路径会持久化。
 
-### 首启赞赏与交流（v1.2.0）
+### 首启与赞赏（v1.3.0）
 
-- 第一次启动显示「感谢赞赏」弹窗和赞赏码；点击「我已赞赏」后显示 QQ 群 `967512206` 与「+QQ群获取更多」，群号可一键复制。
-- 标题栏常驻「我已赞赏」按钮，可随时重新打开赞赏 / 群信息。
-- 赞赏完全自愿，不影响任何功能；已确认状态保存在本机设置中。
+- 首次启动先显示《用户使用协议》和《免责声明》；同意后才能进入，不同意会退出应用。
+- 设置中可随时重读协议；标题栏保留「我已赞赏」入口。
+- 设置 → 我的赞赏码展示支持二维码和流动的感谢文字；赞赏完全自愿，不影响任何功能。
 
-### 转场与视觉（v1.2.0）
+### 转场与视觉（v1.3.0）
 
-- 圆形扩散转场加入斜向轨迹光带与圆形蒙版淡入淡出，整体不透明度提高，切换更连贯。
+- 深色航电工作台、折叠图标栏、150ms 页面淡入淡出、地图底部全宽遥测长条图。
+- 关闭窗口支持直接退出或收进系统托盘；首次关闭时弹窗询问，可保存选择。
 
 ### 游戏与启动（v1.1.1）
 
-- 首页左侧按 X-Plane / Microsoft Flight Simulator 两个系列展示游戏，右侧提供航空公司图鉴和航空小知识；飞机照片已移动到独立「飞机图库」。
+- 首页左侧按 X-Plane / Microsoft Flight Simulator 两个系列展示游戏，右侧为历史航迹；飞机图库已移除。
 - 自动检测 X-Plane 11 / 12 与 Microsoft Flight Simulator 2020 / 2024；支持 Steam、Microsoft Store、常见安装目录与 macOS Applications 目录。
 - 第一次启动会全盘搜索游戏本体，避免非默认目录漏检；随时可以重新全盘搜索或手动选择可执行文件 / `.app`。
 - 大号启动按钮会显示当前游戏与 Steam / Store / 本地来源；macOS Steam 版 X-Plane 通过 Steam 启动，避免 `libsteam_api.dylib` 缺失崩溃。
@@ -145,7 +148,7 @@ SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulat
 
 界面采用浅色、低饱和的航空蓝配色，减少长时间查看数据的疲劳。航路绘制、面板切换和数字统计都带有适度动画；同时尊重系统的“减少动态效果”设置。
 
-应用隐藏系统标题栏，使用与界面一体化的浅色顶栏，整体更像一张安静的电子飞行日志，而不是一个复杂的航空运行系统。
+应用使用深色飞行驾驶舱风格的标题栏与工作区，左侧是可折叠航电导航，整体更像一张安静的电子飞行日志，而不是一个复杂的航空运行系统。
 
 ## 技术实现
 
@@ -155,7 +158,7 @@ SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulat
 - **主进程**：负责 SimBrief 请求、数据归档、文件读写、本地日志存储、下载队列和本机遥测桥接（`127.0.0.1:42831`）。
 - **下载层**：Electron `net` 请求，支持 4 路 Range 多线程、ZIP / 7Z 解压和社区目录安装。
 - **数据层**：纯 JavaScript 计划归一化模块，将 SimBrief 原始 JSON 转换成稳定的应用数据模型。
-- **测试**：Node.js 单元测试覆盖计划解析、地理计算、会话分组、备份恢复、CSV、游戏路径、遥测状态机与社区路径推导。
+- **测试**：Node.js 单元测试覆盖计划解析、地理计算、会话分组、备份恢复、CSV、游戏路径、遥测状态机、社区路径推导与协议/设置约束。
 
 ## 兼容性与安装
 
@@ -167,12 +170,13 @@ SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulat
 ## 测试状态
 
 - 53 项单元测试全部通过，覆盖全盘游戏搜索、Steam App ID、主题/兑换码、计划解析、地理计算、游戏路径分类、SimBrief 草稿 URL、会话分组、地图数据、备份恢复、CSV、遥测状态机、社区路径推导与 X-Plane RREF 编解码。
-- v1.2.1 已验证 Windows 打包版启动、SimConnect 连接、自动实时轨迹、NASA 飞机图库、设置诊断、英文切换与主题解锁。
-- Windows NSIS 安装包已构建；打包后的 `win-unpacked` 应用在安装目录外完成启动与遥测实测。安装器本身需要正常 UAC 提权，未在当前自动化会话中做静默安装复测。
-- macOS 包已在 Windows 上完成 bundle 结构、版本、图标与符号链接校验；因当前环境不是 macOS，未做原生启动测试。X-Plane UDP 使用本地模拟 RREF 响应器验证；真实 X-Plane 环境建议再次确认 UDP 端口设置。
+- v1.3.0 已验证 Windows 测试实例的深色首页、折叠/悬停侧栏、150ms 页面切换、航段历史列表、地图底部遥测长条图、关闭弹窗、协议首启、设置页与自动组件安装流程。
+- Windows 安装包与 macOS x64 / arm64 ZIP 在最终构建后提供；macOS 包只做结构与版本校验，未在原生 macOS 启动。
+- X-Plane UDP 使用本地模拟 RREF 响应器验证；真实 X-Plane 环境建议再次确认 UDP 端口设置。MSFS 的 `exe.xml` 自动唤起需要在打包版上生效。
 
 ## 更新日志
 
+- [SkyLog 1.3.0 更新内容 / What's New](docs/releases/v1.3.0.md)
 - [SkyLog 1.2.1 更新内容 / What's New](docs/releases/v1.2.1.md)
 - [SkyLog 1.2.0 更新内容 / What's New](docs/releases/v1.2.0.md)
 - [SkyLog 1.1.1 更新内容 / What's New](docs/releases/v1.1.1.md)

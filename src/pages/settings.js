@@ -13,6 +13,10 @@ import {
   errorMessage,
   toast,
 } from '../ui/components.js';
+import { openLegal } from '../ui/legal.js';
+import { openAppreciation } from '../ui/appreciation.js';
+import { LEGAL_VERSION } from '../data/legal.js';
+import appreciationImage from '../assets/appreciation.jpg';
 import { t } from '../lib/i18n.js';
 
 export class SettingsPage {
@@ -127,6 +131,65 @@ export class SettingsPage {
           <div id="telemetry-diagnostics">${this.telemetryDiagnosticsHtml()}</div>
           <div class="diagnostic-actions">
             <button class="btn btn-secondary btn-small" type="button" data-settings-action="telemetry-refresh">${icon('refresh', 14)} ${t('重新检测', 'Check again')}</button>
+            <button class="btn btn-secondary btn-small" type="button" data-settings-action="components-install">${icon('plug', 14)} ${t('安装 / 修复组件', 'Install / repair components')}</button>
+          </div>
+          <div class="toggle-list" style="margin-top:10px">
+            ${this.toggle(t('启动时自动安装遥测组件', 'Auto-install telemetry components'), t('检测到社区文件夹后，自动复制 X-Plane 脚本并配置 MSFS 自动启动。', 'Copy the X-Plane script and configure MSFS auto-launch when the community folder is found.'), 'autoInstallBridges', settings.autoInstallBridges !== false)}
+          </div>
+        </section>
+
+        <section class="panel settings-card settings-close">
+          <div class="settings-card-head">
+            <span class="settings-icon">${icon('power', 20)}</span>
+            <div>
+              <h2>${t('关闭与托盘', 'Close & tray')}</h2>
+              <p>${t('选择关闭窗口时直接退出，还是收进系统托盘继续后台待命。', 'Choose whether closing quits SkyLog or keeps it in the system tray.')}</p>
+            </div>
+          </div>
+          ${this.segment(t('关闭时默认行为', 'Default close action'), 'closeAction', settings.closeAction || 'ask', [
+            ['ask', t('每次询问', 'Ask every time')],
+            ['tray', t('收进托盘', 'Keep in tray')],
+            ['quit', t('直接退出', 'Quit')],
+          ])}
+          <div class="toggle-list">
+            ${this.toggle(t('关闭前弹窗询问', 'Prompt before closing'), t('弹窗内可勾选“保存我的选择”；保存后不再询问。', 'The dialog can remember your choice; saved choices skip the prompt.'), 'closePrompt', settings.closePrompt !== false)}
+          </div>
+          <p class="field-help">${t('关闭弹窗中同意保存后，会同时写入这里的默认行为与询问设置。', 'Saving in the close dialog updates both the default action and prompt setting here.')}</p>
+        </section>
+
+        <section class="panel settings-card settings-appreciation">
+          <div class="settings-card-head">
+            <span class="settings-icon">${icon('heart', 20)}</span>
+            <div>
+              <h2>${t('我的赞赏码', 'Support SkyLog')}</h2>
+              <p>${t('如果 SkyLog 帮到了你，欢迎请作者喝杯咖啡。赞赏完全自愿。', 'If SkyLog helps you, you are welcome to buy the author a coffee. Support is always optional.')}</p>
+            </div>
+          </div>
+          <div class="appreciation-setting">
+            <img src="${appreciationImage}" alt="SkyLog 赞赏码" />
+            <div>
+              <button class="btn btn-secondary" type="button" data-settings-action="open-appreciation">${icon('heart', 14)} ${t('打开赞赏与交流', 'Open support & community')}</button>
+              <p class="field-help">${t('赞赏不会解锁功能，也不会影响日志数据。', 'Support does not unlock features or affect your log data.')}</p>
+            </div>
+          </div>
+          <div class="thanks-marquee" aria-hidden="true"><div class="thanks-track"><span>感谢分享 / THANKS FOR SHARING</span><span>感谢开发 / THANKS FOR BUILDING</span><span>感谢每一次起飞 / THANKS FOR FLYING</span><span>感谢分享 / THANKS FOR SHARING</span><span>感谢开发 / THANKS FOR BUILDING</span><span>感谢每一次起飞 / THANKS FOR FLYING</span></div></div>
+        </section>
+
+        <section class="panel settings-card settings-legal">
+          <div class="settings-card-head">
+            <span class="settings-icon">${icon('shield', 20)}</span>
+            <div>
+              <h2>${t('协议与免责声明', 'Terms & disclaimer')}</h2>
+              <p>${t('用户使用协议与免责声明的当前版本。', 'The current user agreement and disclaimer.')}</p>
+            </div>
+          </div>
+          <div class="storage-row">
+            <div><span>${t('当前版本', 'Current version')}</span><code>v${LEGAL_VERSION} · 2026-11-22</code></div>
+            <button class="btn btn-secondary btn-small" type="button" data-settings-action="read-agreement">${t('阅读', 'Read')}</button>
+          </div>
+          <div class="storage-row">
+            <div><span>${t('免责声明', 'Disclaimer')}</span><code>${t('按现状提供 · 非官方项目', 'As-is · unofficial project')}</code></div>
+            <button class="btn btn-secondary btn-small" type="button" data-settings-action="read-disclaimer">${t('阅读', 'Read')}</button>
           </div>
         </section>
 
@@ -438,6 +501,21 @@ export class SettingsPage {
           if (!result.canceled) this.update();
         } else if (storage.dataset.settingsAction === 'telemetry-refresh') {
           await this.loadTelemetryDiagnostics();
+        } else if (storage.dataset.settingsAction === 'components-install') {
+          try {
+            const result = await api.installComponents();
+            const installed = (result.results || []).filter((item) => item.installed).length;
+            toast(`遥测组件已处理 ${installed} 项`, { type: 'success', title: '组件' });
+            await this.loadTelemetryDiagnostics();
+          } catch (error) {
+            toast(errorMessage(error), { type: 'error' });
+          }
+        } else if (storage.dataset.settingsAction === 'open-appreciation') {
+          openAppreciation(this.app);
+        } else if (storage.dataset.settingsAction === 'read-agreement') {
+          openLegal(this.app, { tab: 'agreement' });
+        } else if (storage.dataset.settingsAction === 'read-disclaimer') {
+          openLegal(this.app, { tab: 'disclaimer' });
         }
       });
     }

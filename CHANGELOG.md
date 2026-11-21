@@ -1,6 +1,31 @@
 # Changelog
 
-> English summary: SkyLog 1.2.1 fixes live Microsoft Flight Simulator capture by reading SimConnect directly (no in-game panel required), adds X-Plane UDP RREF telemetry, separates the aircraft gallery from home-page intros, replaces the gallery with NASA public-domain photography, and adds a flight-data diagnostics panel.
+> English summary: SkyLog 1.3.0 is a cockpit-style redesign with a hover-expanding icon rail, 150 ms page fades, a map-free home with launch/history split, automatic simulator components and MSFS exe.xml launch, a full-width altitude/speed/heading telemetry strip, tray close behaviour, a first-run legal gate, and an in-app support QR.
+
+## [1.3.0] - 2026-11-22
+
+### Added
+
+- Dark cockpit shell; sidebar shows icons only at rest and expands to labels on hover; pages cross-fade for 150 ms.
+- New Home layout: game launch on the left, historical flight list and stats on the right, no map.
+- Full-width telemetry strip under the map with separate altitude, speed and heading tracks and live values.
+- Automatic bundled component installation for MSFS and X-Plane. MSFS gets an `exe.xml` entry so starting the simulator launches SkyLog; the X-Plane FlyWithLua bridge attempts the same.
+- Close dialog with quit/tray choices and persistent “save my choice”; tray menu and Settings controls.
+- First-run User Agreement and Disclaimer gate; both documents readable in Settings.
+- Support QR code in Settings with animated thank-you phrases.
+- Unit coverage for the new legal copy and settings fields.
+
+### Changed
+
+- Removed the aircraft gallery and its imagery.
+- MSFS/X-Plane sources begin recording automatically once a planned flight is active; game launch now pre-starts the telemetry source.
+- Version bumped to 1.3.0; Windows and macOS packages rebuilt.
+
+### Verification
+
+- Built and exercised the new dark home, collapsed/expanded rail, 150 ms transitions, map telemetry strip, close dialog, first-run legal gate, settings additions and component install path in a Windows test instance.
+- X-Plane RREF codec tested with the local responder; MSFS SimConnect transport remains tested from 1.2.1.
+- Unit tests pass; macOS bundles verified structurally.
 
 ## [1.2.1] - 2026-11-07
 

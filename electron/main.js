@@ -5,8 +5,10 @@ import {
   dialog,
   ipcMain,
   Menu,
+  nativeImage,
   shell,
   session,
+  Tray,
 } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -34,7 +36,7 @@ import {
 import { DownloadManager } from './downloads.js';
 import { TelemetryBridge, TELEMETRY_PORT } from './telemetry.js';
 import { detectCommunityFolders } from './community.js';
-import { installTelemetryPlugin } from './plugins.js';
+import { installTelemetryPlugin, installAllBundledPlugins } from './plugins.js';
 import { SimConnectBridge } from './simconnect.js';
 import { XPlaneUdpBridge } from './xplane-udp.js';
 
@@ -59,6 +61,9 @@ let telemetry = null;
 let telemetrySession = null;
 let simconnect = null;
 let xplaneUdp = null;
+let tray = null;
+let isQuitting = false;
+let closePromptOpen = false;
 let downloads = null;
 
 const gotLock = app.requestSingleInstanceLock();
@@ -133,6 +138,88 @@ function prunePreviewCache() {
   }
 }
 
+function hideMainWindow() {
+  if (!mainWindow) return;
+  mainWindow.hide();
+  if (process.platform === 'darwin') app.dock?.hide();
+}
+
+function showMainWindow() {
+  if (process.platform === 'darwin') app.dock?.show();
+  if (!mainWindow) {
+    createWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function quitForReal() {
+  isQuitting = true;
+  app.quit();
+}
+
+async function autoInstallBridges(options = {}) {
+  if (!store) return [];
+  const settings = store.getLibrary().settings || {};
+  if (!options.force && settings.autoInstallBridges === false) return [];
+  const known = settings.knownGames || [];
+  try {
+    const results = await installAllBundledPlugins({
+      games: known,
+      customFolder: '',
+      customFolders: settings.communityFolders || {},
+      projectRoot,
+      platform: process.platform,
+      appPath: app.isPackaged ? process.execPath : '',
+      appDataPath: app.getPath('appData'),
+      localAppDataPath: process.env.LOCALAPPDATA || '',
+    });
+    for (const result of results) {
+      logger(`[components] ${result.family}: ${result.installed ? 'installed' : result.message || 'not installed'}`);
+    }
+    store.updateSettings({ bridgesInstalledAt: new Date().toISOString() });
+    return results;
+  } catch (error) {
+    logger(`[components] auto install failed: ${error?.message || error}`);
+    return [];
+  }
+}
+
+function createTray() {  if (tray) return;
+  try {
+    const icon = nativeImage.createFromPath(path.join(projectRoot, 'build', 'icon.png')).resize({ width: 18, height: 18 });
+    tray = new Tray(icon);
+    tray.setToolTip('SkyLog 航迹');
+    tray.setContextMenu(Menu.buildFromTemplate([
+      { label: '打开 SkyLog', click: showMainWindow },
+      { type: 'separator' },
+      { label: '退出', click: quitForReal },
+    ]));
+    tray.on('click', showMainWindow);
+  } catch (error) {
+    logger(`[tray] unavailable: ${error?.message || error}`);
+  }
+}
+
+function requestWindowClose() {
+  const settings = store?.getLibrary().settings || {};
+  const action = settings.closeAction === 'quit' ? 'quit' : settings.closeAction === 'tray' ? 'tray' : 'ask';
+  if (settings.closePrompt === false && action !== 'ask') {
+    if (action === 'quit') quitForReal();
+    else hideMainWindow();
+    return;
+  }
+  if (!mainWindow || closePromptOpen) return;
+  closePromptOpen = true;
+  sendEvent('window:close-request', {
+    action,
+    prompt: true,
+    saved: settings.closePrompt === false,
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1480,
@@ -140,7 +227,7 @@ function createWindow() {
     minWidth: 1080,
     minHeight: 700,
     show: false,
-    backgroundColor: '#f7f9fd',
+    backgroundColor: '#041019',
     title: 'SkyLog 航迹',
     icon: path.join(projectRoot, 'build', 'icon.png'),
     autoHideMenuBar: true,
@@ -148,8 +235,8 @@ function createWindow() {
     ...(isWindows
       ? {
           titleBarOverlay: {
-            color: '#f8fafd',
-            symbolColor: '#334155',
+            color: '#05131d',
+            symbolColor: '#b8d4df',
             height: 46,
           },
         }
@@ -198,8 +285,15 @@ function createWindow() {
     }
   });
 
+  mainWindow.on('close', (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    requestWindowClose();
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
+    closePromptOpen = false;
   });
 
   const devUrl = process.env.SKYLOG_DEV_URL;
@@ -462,6 +556,7 @@ function initIpc() {
     }
     const games = [...merged.values()];
     store.updateSettings({ gameScanDone: true, knownGames: games });
+    autoInstallBridges().catch((error) => logger(`[components] background install: ${error?.message || error}`));
     return {
       games: games.map((game) => ({ ...game, subtitle: gameDisplaySubtitle(game) })),
       platform: process.platform,
@@ -620,6 +715,7 @@ function initIpc() {
         customFolder: communitySettings()[family] || '',
         projectRoot,
         platform: process.platform,
+      appPath: app.isPackaged ? process.execPath : '',
       });
       if (plugin.telemetryFile) telemetry.watchFile(plugin.telemetryFile, family);
     } catch (error) {
@@ -680,6 +776,11 @@ function initIpc() {
     const session = telemetrySession;
     telemetrySession = null;
     return { stopped: true, session };
+  });
+
+  handle('components:install', async () => {
+    const results = await autoInstallBridges({ force: true });
+    return { results };
   });
 
   handle('telemetry:diagnostics', async () => {
@@ -778,6 +879,34 @@ function initIpc() {
     return { mode: 'zip', installed: true, target, filePath };
   });
 
+  handle('app:quit', async () => {
+    setImmediate(quitForReal);
+    return { quitting: true };
+  });
+
+  handle('window:request-close', async () => {
+    if (mainWindow) mainWindow.close();
+    return { requested: true };
+  });
+
+  handle('window:close-response', async (_event, payload = {}) => {
+    const action = payload.action === 'tray' ? 'tray' : payload.action === 'quit' ? 'quit' : '';
+    if (!action) {
+      closePromptOpen = false;
+      return { handled: false };
+    }
+    if (payload.save) {
+      store.updateSettings({ closeAction: action, closePrompt: false });
+    }
+    closePromptOpen = false;
+    if (action === 'quit') quitForReal();
+    else {
+      createTray();
+      hideMainWindow();
+    }
+    return { handled: true, action, saved: Boolean(payload.save) };
+  });
+
   handle('app:info', async () => ({
     version: app.getVersion(),
     electron: process.versions.electron,
@@ -830,6 +959,7 @@ app.whenReady().then(() => {
     xplaneUdp = new XPlaneUdpBridge(sourceOptions);
     xplaneUdp.start();
   }
+  autoInstallBridges().catch((error) => logger(`[components] background install: ${error?.message || error}`));
   if (process.platform === 'darwin') {
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       {
@@ -865,14 +995,20 @@ app.whenReady().then(() => {
   });
   initIpc();
   createWindow();
+  createTray();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    else showMainWindow();
   });
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin' && !tray) app.quit();
 });
 
 process.on('uncaughtException', (error) => {
