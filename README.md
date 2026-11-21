@@ -169,7 +169,7 @@ SkyLog is a local-first flight-plan and logbook app for Microsoft Flight Simulat
 
 ## 测试状态
 
-- 53 项单元测试全部通过，覆盖全盘游戏搜索、Steam App ID、主题/兑换码、计划解析、地理计算、游戏路径分类、SimBrief 草稿 URL、会话分组、地图数据、备份恢复、CSV、遥测状态机、社区路径推导与 X-Plane RREF 编解码。
+- 56 项单元测试全部通过，覆盖全盘游戏搜索、Steam App ID、主题/兑换码、计划解析、地理计算、游戏路径分类、SimBrief 草稿 URL、会话分组、地图数据、备份恢复、CSV、遥测状态机、社区路径推导、X-Plane RREF 编解码与协议文本约束。
 - v1.3.0 已验证 Windows 测试实例的深色首页、折叠/悬停侧栏、150ms 页面切换、航段历史列表、地图底部遥测长条图、关闭弹窗、协议首启、设置页与自动组件安装流程。
 - Windows 安装包与 macOS x64 / arm64 ZIP 在最终构建后提供；macOS 包只做结构与版本校验，未在原生 macOS 启动。
 - X-Plane UDP 使用本地模拟 RREF 响应器验证；真实 X-Plane 环境建议再次确认 UDP 端口设置。MSFS 的 `exe.xml` 自动唤起需要在打包版上生效。
